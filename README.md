@@ -40,6 +40,12 @@ zero forgetting by construction). Questions never write the store (assertions ar
 world-facts; queries are not). The neural body supplies the prior; the living organ
 supplies memory that survives any context length, at **constant cost per token**.
 
+## Scaling it up
+
+To fuse the living organ onto a real transformer (or via an LLM's help), read
+[INTEGRATION.md](INTEGRATION.md) FIRST — six small mistunes each cause major
+degradation, and each one is documented there from a failed run we actually hit.
+
 ## Honest scope — read before citing
 
 - These are **architecture-level demonstrations at ~0.1M parameters on synthetic
