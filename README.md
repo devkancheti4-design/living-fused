@@ -40,11 +40,57 @@ zero forgetting by construction). Questions never write the store (assertions ar
 world-facts; queries are not). The neural body supplies the prior; the living organ
 supplies memory that survives any context length, at **constant cost per token**.
 
-## Scaling it up
+## Scaling it up — proven on a real pretrained transformer
 
-To fuse the living organ onto a real transformer (or via an LLM's help), read
-[INTEGRATION.md](INTEGRATION.md) FIRST — six small mistunes each cause major
-degradation, and each one is documented there from a failed run we actually hit.
+`live.py` trains its own tiny body. But the organ is **model-agnostic** — you can
+bolt it onto a *frozen, pretrained* transformer of any size and give it memory it
+structurally cannot have. `scale_demo.py` does exactly this on **GPT-2 (124M — ~1000×
+the toy body)**:
+
+```bash
+pip install torch numpy transformers
+python3 scale_demo.py         # first run downloads GPT-2 (~500MB)
+```
+
+It places arbitrary facts (`The Zephyr device is red`) **~1,500 tokens back — beyond
+GPT-2's 1024-token window** — then queries them at the end:
+
+| test | GPT-2 alone | GPT-2 + living organ |
+|---|---|---|
+| **recall** a fact beyond the window | **0 / 8** | **8 / 8** |
+| **revise** a fact that was updated | **0 / 8** | **8 / 8** |
+
+GPT-2 alone is blind (the facts scrolled out of its window and are arbitrary). The
+organ gives the *same frozen weights* beyond-window recall and fact-revision. Swap
+`MODEL = "gpt2"` for any HuggingFace causal LM (Llama, Mistral, …) — the code doesn't
+change; the transformer is never modified.
+
+### Exactly how the graft works (5 lines of real logic)
+
+1. **Freeze the transformer.** Read its next-token distribution as the *prior*.
+2. **Key a memory on the fact frame.** For each token, `key = tokens since the last
+   newline` — so `The Zephyr device is` is one isolated key, and `→ red` is its value.
+3. **Write only on assertions, recency-dominant.** `store[key][next] += sum(store[key])
+   + 1`. A later write always outweighs the past, so facts *update*, not average.
+   Questions never write.
+4. **Blend by confidence at read time.** `w = n / (n + C)`, then
+   `p = (1-w)·prior + w·memory`. If the key is unknown, the organ stays silent and the
+   transformer speaks.
+5. That's it. No training, no fine-tuning, no touching the transformer.
+
+### Two mistunes that silently make it do *nothing* (we hit both, live)
+
+Getting the graft to 8/8 took fixing two things that otherwise return ~0/8 *while
+looking like they work*:
+
+- **The gate `C` was too high** (a known fact got only 0.2 weight and GPT-2's generic
+  guess drowned it). A single, definite fact must **dominate** the prior — small `C`
+  (we use `0.25`). This is mistune #1.
+- **The write frame must match the query frame.** We stored `X is now blue` but asked
+  `X is ___` — different keys, invisible update. Store what you'll ask for.
+
+Read [INTEGRATION.md](INTEGRATION.md) before scaling — it lists all six mistunes, each
+from a run that actually failed.
 
 ## Honest scope — read before citing
 
