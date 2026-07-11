@@ -15,7 +15,7 @@ install), you will watch:
    plus a persistent recurrent current — on streams **no longer than 420 tokens**;
 2. the **life switch on**: a disjoint integer fact-table that updates on *every token
    the model reads*. Deployment is learning. It never freezes;
-3. the organism take three exams **up to 150× beyond its training length**, scored
+3. the fused model takes three exams **up to 150× beyond its training length**, scored
    live against its own **frozen twin** (identical weights, life off):
 
 | exam | scale | ALIVE | frozen twin | chance |
@@ -25,7 +25,7 @@ install), you will watch:
 | code-dependency trace (corrupted var → use-site) | 20,000 tokens | **100%** | 12% | ~6% |
 
 4. a **determinism receipt**: two identical lives produce **byte-identical**
-   organisms (SHA-256 of the fact-tables printed);
+   models (SHA-256 of the fact-tables printed);
 5. the **cost of being alive**: ms/token measured at 1K vs 32K context — flat.
 
 Fixed seeds — your numbers should match the table. If they don't, open an issue.
@@ -61,9 +61,62 @@ GPT-2's 1024-token window** — then queries them at the end:
 | **revise** a fact that was updated | **0 / 8** | **8 / 8** |
 
 GPT-2 alone is blind (the facts scrolled out of its window and are arbitrary). The
-organ gives the *same frozen weights* beyond-window recall and fact-revision. Swap
-`MODEL = "gpt2"` for any HuggingFace causal LM (Llama, Mistral, …) — the code doesn't
-change; the transformer is never modified.
+organ gives the *same frozen weights* beyond-window recall and fact-revision.
+
+### It is not just GPT-2 — the same organ scales to a 1B-param model
+
+`scale_llama.py` runs the **identical organ** on a frozen, pretrained **Llama-3.2-1B
+(1.24B params — ~8,000× the toy body)**. Here the served window is **deliberately
+capped at 200 tokens** — Llama-3.2-1B natively handles 128K, so we serve only 200 to
+keep CPU inference fast *and* to model a cost-capped deployment — with the facts placed
+~450 tokens back, beyond that served slice:
+
+```bash
+python3 scale_llama.py        # first run downloads Llama-3.2-1B (~2.5GB); CPU is slow but works
+```
+
+| test | Llama-1B (served 200) | Llama-1B + living organ |
+|---|---|---|
+| **recall** a fact beyond the served window | **0 / 6** | **5 / 6** |
+| **revise** a fact that was updated | **0 / 6** | **6 / 6** |
+
+**Read this table honestly:** the `0/6` baseline reflects the *imposed* 200-token cap,
+not a limit of Llama — served its full 128K window, Llama could hold these facts itself.
+What this demonstrates is different from the GPT-2 case (where ~1,500 tokens back is a
+*real* 1024-window limit): it shows the **same organ code runs unchanged on a 1B-param
+model** and supplies memory beyond *whatever* window you choose to serve — the point
+being that in a real deployment you serve a bounded window for cost, and the organ
+carries the rest. The Organ class here is the same one in `scale_demo.py`; nothing in
+the recipe changes when the model gets 8,000× bigger. (Recall is **5/6, not a clean
+sweep** — one fact misses on a Llama-BPE tokenization edge case, and it reproduces at
+5/6 across runs, so it's a stable quirk, not noise.)
+
+The organ only needs a next-token distribution, so the **code** is model-agnostic — swap
+`MODEL` for any HuggingFace causal LM. We have verified GPT-2 and Llama-3.2-1B; others
+(Mistral, Qwen, …) should slot in unchanged but are **untested**, and tokenizer
+differences can shift the numbers (see the 5/6 note). The transformer is never modified.
+
+### How far the memory itself scales
+
+`max_organ.py` pushes the memory layer alone (no transformer) to a machine's ceiling —
+capacity, speed, and byte-exact determinism:
+
+```bash
+python3 max_organ.py          # pure Python + numpy; no GPU, no downloads
+```
+
+| facts held | recall accuracy | RAM |
+|---|---|---|
+| 1,000,000 | **100%** | 496 MB |
+| **5,000,000** | **100%** | 2.4 GB |
+
+At 5 million facts it still recalls **100%** and answers **~1.5 million lookups/sec**,
+with flat per-fact cost — the limit hit is the machine's RAM, not the algorithm. Two
+more receipts the script prints: **2,000,000 overwrites on 1,000 keys → latest value
+correct 1,000/1,000** (last-write-wins holds under heavy contention), and **1M facts
+built twice → byte-identical SHA-256** (the same reproducibility the demo shows, at
+scale). Write throughput fluctuates a few percent run to run (wall-clock on a shared
+CPU); the accuracy, RAM, overwrite, and determinism results are exact.
 
 ### Exactly how the graft works (5 lines of real logic)
 
@@ -94,12 +147,14 @@ from a run that actually failed.
 
 ## Honest scope — read before citing
 
-- These are **architecture-level demonstrations at ~0.1M parameters on synthetic
-  streams** — not product benchmarks. No product claims are made.
+- These are **architecture-level demonstrations on synthetic streams** — not product
+  benchmarks. No product claims are made. The core demo (`live.py`) trains ~0.1M
+  parameters from scratch; the scale demos bolt the *same* organ onto frozen, pretrained
+  124M–1.24B models without training any new weights.
 - The living organ is a *fact memory*. It does not add reasoning, and on soft
   statistical prediction (prose) a naive fixed blend can *hurt* — organs specialize.
 - Single-pass nested composition (answer f(g(x)) in one step) is **not** in this
-  organism's repertoire; it composes by chaining lookups across steps.
+  model's repertoire; it composes by chaining lookups across steps.
 - Per-token cost is flat because the attention window is fixed and the organ is O(1)
   per update. The frozen twin's failures are structural (facts leave its window),
   which is exactly the point being demonstrated.

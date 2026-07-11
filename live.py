@@ -12,12 +12,12 @@ What happens, in order (all on CPU, ~10-15 min on an Apple-silicon Mac):
      + a persistent recurrent current. Trained ONLY on streams <= 420 tokens.
   2. The LIFE is switched on: a disjoint integer fact-table that updates on every
      token the model reads. Deployment IS learning. It never freezes.
-  3. The organism takes three long-context exams FAR beyond its training length,
+  3. The fused model takes three long-context exams FAR beyond its training length,
      each scored against its own frozen twin (identical weights, life off):
        T1  RULER-style: 10 variables + mid-stream updates @ 32,000 tokens
        T2  chain-of-custody across 64,000 tokens
        T3  code-dependency trace (corrupted var -> use site) @ 20,000 tokens
-  4. Determinism receipt: two identical lives -> byte-identical organisms (SHA-256).
+  4. Determinism receipt: two identical lives -> byte-identical models (SHA-256).
   5. Cost of being alive: ms/token at 1K vs 32K context (flat).
 
 Expected results (fixed seeds; your numbers should match):
@@ -168,7 +168,7 @@ for b in range(8):
 a1, z1, shas = versus("T1  RULER — 10 variables + mid-stream updates @ 32,000 tokens",
                       streams, answers, model,
                       "76x beyond training length; 4 values overwritten mid-stream")
-print(f"      aliveness receipts (each stream changed its organism): {shas[:3]} ...")
+print(f"      aliveness receipts (each stream changed its memory): {shas[:3]} ...")
 
 rng = np.random.default_rng(21); streams, answers = [], []
 for b in range(8):
@@ -210,7 +210,7 @@ print(f"      stale check: returned the outdated value {sh}/8 times (0 = perfect
 print("\n  [4/5] determinism receipt — two identical lives, lived independently")
 aA, sA = walk(model, streams[:2], answers[:2], living=True)
 aB, sB = walk(model, streams[:2], answers[:2], living=True)
-print(f"      life #1 organisms: {sA}\n      life #2 organisms: {sB}")
+print(f"      life #1 model: {sA}\n      life #2 model: {sB}")
 print(f"      -> {'BYTE-IDENTICAL: the life is deterministic' if sA == sB else 'MISMATCH (please report!)'}")
 
 print("\n  [5/5] cost of being alive — ms/token at 1K vs 32K context")

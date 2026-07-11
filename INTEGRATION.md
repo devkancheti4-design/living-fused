@@ -52,13 +52,14 @@ forgetting through the back door. Keep the store sparse and disjoint; grow it, d
 compress it, unless you measure that collisions stay rare.
 
 **5. Unbounded integer growth (numerically bites at long life).**
-Recency-dominant writes double counts; over millions of tokens they overflow.
-Cap-and-halve deterministically (`if row.sum() > CAP: row >>= s`) — deterministic so
-the byte-exact reproducibility survives. Ours overflowed on unqueried noise rows
-before we capped it; harmless there, fatal if it hits a live row.
+Recency-dominant writes grow counts; over millions of tokens they overflow.
+Cap-and-rescale deterministically (`if row.sum() > CAP: row >>= s` bulk down-scales the
+row on overflow) — deterministic so the byte-exact reproducibility survives. Ours
+overflowed on unqueried noise rows before we capped it; harmless there, fatal if it
+hits a live row.
 
 **6. Floating-point in the organ (kills determinism across machines).**
-The organ's crown property — identical life → byte-identical organism on any
+The organ's crown property — identical life → byte-identical model on any
 hardware — only holds if the *store* is integer. Keep counts in int; do the
 float blend only at the read, and if you need cross-machine bit-identity in the
 blend too, quantize it. The transformer can be float; the memory must be integer.
