@@ -145,6 +145,42 @@ looking like they work*:
 Read [INTEGRATION.md](INTEGRATION.md) before scaling — it lists all six mistunes, each
 from a run that actually failed.
 
+## Fusing onto bigger models — and letting an LLM wire it up
+
+`live.py` is tiny on purpose; `scale_demo.py` and `scale_llama.py` show the *same* organ
+on frozen 124M and 1.24B models with **zero code changes**. On a bigger machine (more
+RAM/VRAM, a 7B–70B model — **untested at this size, so this is an architectural argument,
+not a measured result**) the recipe still does not change — the organ has **constant
+per-token cost, independent of context length and model size, and is model-agnostic, so
+you scale the transformer, not the organ**:
+
+1. Load your model **frozen** (any HF causal LM). Read its next-token logits as the prior.
+2. Add one `Organ` beside it — the ~15-line class in `scale_demo.py`. Keep it **integer
+   and disjoint-per-context**.
+3. Write to it on **assertion tokens only**; blend at read time with the confidence gate.
+4. **Reproduce the `live.py` frozen-twin scoreboard on YOUR model at ~1K tokens before
+   scaling context.** If living doesn't beat its frozen twin small, it won't big — fix
+   the gate, not the size.
+
+**You can hand this to an LLM (Claude, GPT-4, etc.) to graft onto your model** — but it
+will get the details wrong *by default*: it writes a fixed 50/50 blend, writes every
+token to the store, and averages instead of overwriting (three of the six mistunes).
+Give it [INTEGRATION.md](INTEGRATION.md) and this prompt verbatim:
+
+> *"Freeze the transformer. Add a per-context integer count-table memory, updated only on
+> assertion tokens, with recency-dominant writes (`row[next] += row.sum()+1`) and a
+> confidence gate `w = n/(n+K)`; blend over the frozen model's logits at read time. Keep
+> the store integer and disjoint-per-context. Then reproduce the frozen-twin scoreboard at
+> 1K tokens before scaling context."*
+
+For **production** at scale, replace the fixed gate with a **learned** gate — a tiny
+trained layer that outputs the blend weight from (transformer confidence, memory
+confidence). The hand-picked blend is a demo shortcut and is the #1 source of "it got
+worse" (mistune #1). Two practical notes for bigger machines: RAM is the ceiling for the
+memory (~0.5 GB per 1M facts here), while the **transformer's own weights + KV-cache
+dominate at 7B+**; and the organ adds **~0 to per-token latency** (flat with context), so
+its cost is memory, not compute.
+
 ## Honest scope — read before citing
 
 - These are **architecture-level demonstrations on synthetic streams** — not product
@@ -158,6 +194,58 @@ from a run that actually failed.
 - Per-token cost is flat because the attention window is fixed and the organ is O(1)
   per update. The frozen twin's failures are structural (facts leave its window),
   which is exactly the point being demonstrated.
+
+## Is this a world-first? — the honest answer
+
+Short version: **the goal is not new; this particular combination might be.** I would
+rather tell you the truth than sell you a "world-first."
+
+Memory-augmented language models already exist, and several are close in spirit:
+
+- **kNN-LM** (Khandelwal et al., 2020) — a frozen LM interpolated with a nearest-neighbor
+  datastore of context→next-token. The closest prior art to what this does.
+- **Memorizing Transformers** (Wu et al., 2022) — kNN lookup into a memory of past
+  keys/values to extend effective context.
+- **RAG / vector-DB retrieval** (Lewis et al., 2020) — retrieve relevant text and
+  condition generation on it.
+- **Memory Networks** (Weston/Sukhbaatar, 2015), **Neural Turing Machines / DNC**
+  (Graves et al., 2014/2016), **fast-weights** (Ba et al., 2016) — external or
+  fast-changing memory, going back years.
+- **Knowledge-editing** (ROME/MEMIT/SERAC) *does* revise facts, and NTM/DNC have
+  overwrite gates — but they edit float weights or use learned retrieval, are not
+  integer-deterministic, and are not online O(1) per token.
+
+So *"a frozen model + external memory blended at read time"* is **not** first-of-its-kind.
+If a post tells you otherwise — including mine — be skeptical.
+
+What I have **not** found in any single existing system is a drop-in memory that is *all
+four of these at once*:
+
+1. **Deterministic and integer** — the fact-table is byte-reproducible *by construction*
+   (integer arithmetic is machine-independent, unlike float); demonstrated here as
+   byte-identical across independent runs on the same machine. (kNN-LM and vector DBs use
+   float similarity search; they are not built to be bit-reproducible.)
+2. **Register semantics** — a later write cleanly *overrules* an older one, so a fact can
+   be **revised**, not just retrieved. Pure similarity retrieval cannot do this (the stale
+   neighbor still votes); float weight-editing (ROME/MEMIT) can, but not deterministically
+   or online-per-token.
+3. **Zero-forgetting by construction** — disjoint per-context rows; learning fact A
+   *physically cannot* touch fact B. Not "rarely" — structurally.
+4. **Online at inference, constant per-token cost, CPU-only** — no retraining, no
+   re-indexing, flat cost as context grows.
+
+In three words, it is an **adaptive, deterministic, recurrent** memory — and the
+load-bearing pair is the first two. Online *adaptivity* (learning at inference) is almost
+always stochastic and float, so it is not reproducible; making it *deterministic*
+(bit-exact) at the same time is the unusual move. *Recurrent* is the shape: it carries and
+updates a persistent state token by token, rather than re-reading a fixed window.
+
+Each property exists somewhere on its own. The part I haven't seen in one system is the
+**intersection**: adaptive **+** deterministic **+** clean-revision **+** structural-no-forget
+**+** online-on-CPU. That — not "world-first" — is the honest claim. **If you know of a
+system that does all four, please open an issue with the link; I'll add it here.** That is
+not rhetorical: being wrong about this is worth knowing, and I would rather find out than
+pretend.
 
 ## License
 
