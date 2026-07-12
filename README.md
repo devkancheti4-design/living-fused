@@ -1,6 +1,19 @@
 # living-fused
 
-**A model that never stops learning. One command starts a life on your machine.**
+**Your own AI memory — private, offline, and free to keep. Talk to it; it remembers.**
+
+I built a *living fused* brain: a language model bolted to a flat integer memory that doesn't bloat
+your RAM. What that gets you:
+
+- 🧠 **Memory that costs nothing to grow** — a million facts live in kilobytes. No expanding
+  KV-cache, so long context doesn't eat your RAM or your GPU budget.
+- 🔒 **Private & offline** — it all runs on your laptop. Nothing leaves your machine, ever.
+- ⚡ **Instant once loaded** — the model loads once, then replies come back in a blink.
+- 📦 **Clone it, hack it** — the whole skeleton is here; swap in any model your machine can run.
+- 🔬 **Research without the GPU tax** — run long-context memory experiments on a normal computer,
+  no multi-GPU grant needed.
+
+**Start in 30 seconds** with the apps below. Or watch the architecture train itself from scratch:
 
 ```bash
 git clone https://github.com/devkancheti4-design/living-fused.git
