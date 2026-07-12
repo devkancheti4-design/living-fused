@@ -43,6 +43,21 @@ you use it). Semantic recall is a float embedder — strong on rewording but wit
 rare synonyms, thin margins when many facts compete). Any reasoning/phrasing is the optional model's
 job at the model's quality; the memory layer adds **recall, not intelligence**.
 
+## `webui.py` — a Claude-style chat app for your brain
+
+Run it, open the printed URL in a browser tab, and it's an app. No extra dependencies (Python
+standard library + `personal_brain.py`). Everything stays on your machine.
+
+```bash
+python3 apps/webui.py                 # -> http://127.0.0.1:8765
+PORT=9000 python3 apps/webui.py       # custom port
+HOST=0.0.0.0 python3 apps/webui.py    # share on your LAN (trusted networks only)
+```
+
+In the chat, ask anything in plain language; start a message with `remember …` to teach it a fact.
+It shows your fact count and recall mode (semantic / keyword) in the header. Same honest scope as
+`personal_brain.py`. Each person runs their **own** instance — private, on-device, no cloud.
+
 ## Adapting to your laptop and model
 
 Both scripts detect RAM and suggest a model tier (~0.5B → ~14B by available memory). The memory is
