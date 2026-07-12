@@ -93,6 +93,51 @@ your machine; each person runs their own. Full usage + honest scope in [`apps/RE
   remembers facts and answers from them, with multi-turn follow-ups.
 - **`apps/webui.py`** — a local, Claude-style chat UI for the brain; open it in a browser tab.
 
+## What it is · what it's not · how to use it (full clarity)
+
+**What it is**
+- A **memory layer** for local LLMs: a flat, integer, deterministic store of facts that lives
+  *outside* the model's context window, so long-context memory costs kilobytes instead of a growing
+  KV-cache.
+- A **private, on-device assistant** (`personal_brain.py` + `webui.py`): you talk to it, it remembers
+  your facts and answers from them, entirely on your machine and persistent across sessions.
+- A **reproducible benchmark** (`researcher_bench.py`): shows the KV-cache `O(N)` vs flat `O(1)`
+  scaling on your own laptop, no GPU cluster needed.
+- **Model-agnostic** — the memory works alongside any local model you can run.
+
+**What it is not**
+- **Not a new foundation model or a reasoning engine.** The intelligence — language, reasoning,
+  analysis — is your *local model's*. The memory only supplies the right facts.
+- **Not a replacement for a vector DB / semantic search.** The reworded-query matching *is* a
+  sentence-embedder (float vectors + cosine) — the same tech a vector DB uses. It doesn't replace
+  that; it uses it.
+- **Not cheaper generation.** It does not speed up or reduce the cost of the model *generating* text
+  (that's transformer-speed). What it removes is the *context-memory* cost (the KV-cache), not inference.
+- **Not a cloud service.** There is no hosted version. Each person runs their own instance locally;
+  nothing is uploaded.
+- **Not guaranteed correct.** Semantic recall can pull the wrong fact (negation, rare synonyms, thin
+  margins when many facts compete), and the local model can misphrase or hallucinate. Treat answers
+  as helpful, not authoritative.
+
+**How to use it**
+1. Clone and run (see **Quick start** above). `researcher_bench.py` needs nothing installed; the
+   assistant uses `transformers` for recall and a local model (Apple MLX by default) for replies, and
+   degrades gracefully to keyword + raw facts without them.
+2. Talk to it in plain language — it detects whether you're *telling* it a fact or *asking*.
+   `remember …`, `forget …`, `forget all` are explicit controls; `AUTO_REMEMBER=0` disables auto-saving.
+3. Your data lives in `~/.personal_brain.json` on your machine — a plain JSON file you can back up,
+   edit, or delete. To open the web app to a trusted LAN: `HOST=0.0.0.0 python3 apps/webui.py`.
+4. To use your own model, edit one function: `_model_chat()` in `apps/personal_brain.py`.
+
+**Terms & disclaimer**
+- License: **AGPL-3.0** — use, modify, and self-host freely; any network-served modification must be
+  open-sourced under the same terms. See [LICENSE](LICENSE).
+- Provided **as-is, with no warranty.** Do **not** rely on it for medical, legal, financial, or any
+  safety-critical decisions — it is a personal memory tool, not a source of truth.
+- **Your data stays yours and local.** The project never transmits your data anywhere. If you enable
+  LAN sharing, doing so safely on a trusted network is your responsibility.
+- You are responsible for whichever model and data you choose to run with it.
+
 ## The idea in four sentences
 
 A frozen model can only use what fits in its attention window; everything else is
