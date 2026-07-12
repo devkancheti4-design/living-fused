@@ -181,6 +181,57 @@ memory (~0.5 GB per 1M facts here), while the **transformer's own weights + KV-c
 dominate at 7B+**; and the organ adds **~0 to per-token latency** (flat with context), so
 its cost is memory, not compute.
 
+## "It only works if you ask the exact question" — the honest answer
+
+This is the most common — and most correct — objection, so it gets a direct answer.
+
+**For the integer memory alone, it is true.** The count-table is keyed on the exact token
+sequence. Ask it a reworded question and it correctly returns *nothing* — it never guesses.
+That is a deliberate property (deterministic, never-bluffing recall you can audit), and on
+its own it does demand the exact question. If that were the whole system, the objection
+would be fatal.
+
+**It isn't the whole system.** Exact-key recall and messy-language matching cannot come
+from the *same* component — an exact key is lossless but rigid; a semantic key is flexible
+but a float with failure modes. So you keep both, as three layers:
+
+1. **Integer memory** — exact, deterministic, O(1), never bluffs. *(this repo)*
+2. **A semantic retriever** — a small sentence-embedding model that maps a *messy* query to
+   the *meaning* of a stored fact.
+3. **The language model** — reads the retrieved fact(s) and answers in natural language,
+   including multi-hop reasoning.
+
+### Measured, on deliberately broken queries
+
+*(Separate harness from `live.py`: a 7B model + a sentence embedder, target facts stored
+among 14 distractors. Reworded/indirect/multi-hop queries — never the "expected" one.)*
+
+| Stored fact | Query (never the expected phrasing) | Result |
+|---|---|---|
+| *Arthur gave the asset deed to Beatrice.* | "walk me through what happened to that real estate paperwork after **Artie** got his hands on it — did it change owners?" | ✅ "…changed hands to **Beatrice**" |
+| *…update failed at 04:00 — unhandled null pointer in the **authentication gateway** module.* | "the **login screen** broke this morning, why did it go down?" | ✅ "**null pointer** in the **authentication gateway**" |
+| *Charles travels only on vehicles built by **Boeing**.* + *the airline bought a fleet of **737**s.* | "can **Charles** book a flight with that new airline?" | ✅ "**Yes**" (deduced 737 → Boeing → Charles flies Boeing) |
+
+Exact-key memory alone: **0/3**. Fused (retriever + model): **3/3**.
+
+### What this does *not* claim
+
+- The messy-query matching is done by the **embedder + language model**, **not** the
+  integer memory. The deterministic core contributes **zero** to fuzzy matching; it is the
+  auditable store, not the semantic bridge. Credit goes to the right layer.
+- The retriever is a **float similarity with thin margins.** In the login example the
+  correct fact scored **0.25 — tied with a distractor**; it ranked first by a hair. With
+  more distractors or a worse-phrased query it can be outranked and silently return the
+  wrong fact. It also has known failure modes (negation: "the capital is *not* X" can fire
+  the wrong match).
+- So the honest claim is: **reworded, indirect, and multi-hop queries work — reliably when
+  retrieval fires, which is most of the time but not always.** Strong, not infallible.
+
+**In one line:** the objection is right about the *core* — and the *system* is built
+precisely to fix it, by putting a semantic retriever and a language model in front of the
+deterministic memory, at the cost of that front layer being a float with real failure
+modes rather than the lossless integer core.
+
 ## Honest scope — read before citing
 
 - These are **architecture-level demonstrations on synthetic streams** — not product
