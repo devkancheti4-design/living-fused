@@ -9,7 +9,7 @@ your RAM. What that gets you:
   KV-cache, so long context doesn't eat your RAM or your GPU budget.
 - 🔒 **Private & offline** — it all runs on your laptop. Nothing leaves your machine, ever.
 - ⚡ **Instant once loaded** — the model loads once, then replies come back in a blink.
-- 📦 **Clone it, hack it** — the whole skeleton is here; swap in any model your machine can run.
+- 📦 **Clone it, modify it** — the whole skeleton is here; swap in any model your machine can run.
 - 🔬 **Research without the GPU tax** — run long-context memory experiments on a normal computer,
   no multi-GPU grant needed.
 
