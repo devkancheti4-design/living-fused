@@ -30,6 +30,18 @@ install), you will watch:
 
 Fixed seeds — your numbers should match the table. If they don't, open an issue.
 
+## Two runnable apps (adapt to your laptop)
+
+Two small, honest demos in [`apps/`](apps/) — both detect your RAM, suggest a model tier, and have
+a core that runs with **nothing but Python** (no GPU, no model download):
+
+- **`apps/researcher_bench.py`** — reproduce the context-memory decoupling on your machine: the
+  KV-cache O(N) table vs the flat O(1) store, a flat-memory proof, and lookup latency.
+- **`apps/personal_brain.py`** — a private, on-device, persistent fact memory: tell it things, ask
+  in plain language, all local. Semantic recall if `transformers` is installed, else keyword.
+
+See [`apps/README.md`](apps/README.md) for usage and honest scope.
+
 ## The idea in four sentences
 
 A frozen model can only use what fits in its attention window; everything else is
