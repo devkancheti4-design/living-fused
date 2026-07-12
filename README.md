@@ -30,17 +30,55 @@ install), you will watch:
 
 Fixed seeds — your numbers should match the table. If they don't, open an issue.
 
-## Two runnable apps (adapt to your laptop)
+## Quick start — the apps
 
-Two small, honest demos in [`apps/`](apps/) — both detect your RAM, suggest a model tier, and have
-a core that runs with **nothing but Python** (no GPU, no model download):
+Clone it and run. The apps **adapt to your laptop** (detect RAM, pick a model tier) and **degrade
+gracefully**, so they run on any machine:
 
-- **`apps/researcher_bench.py`** — reproduce the context-memory decoupling on your machine: the
-  KV-cache O(N) table vs the flat O(1) store, a flat-memory proof, and lookup latency.
-- **`apps/personal_brain.py`** — a private, on-device, persistent fact memory: tell it things, ask
-  in plain language, all local. Semantic recall if `transformers` is installed, else keyword.
+```bash
+git clone https://github.com/devkancheti4-design/living-fused.git
+cd living-fused
 
-See [`apps/README.md`](apps/README.md) for usage and honest scope.
+python3 apps/researcher_bench.py     # KV-cache / cost benchmark — needs NOTHING installed
+python3 apps/personal_brain.py       # your private conversational memory (terminal)
+python3 apps/webui.py                # a Claude-style chat app -> http://127.0.0.1:8765
+```
+
+Optional, for the full experience:
+
+```bash
+pip install transformers torch   # -> semantic recall (understands reworded questions)
+pip install mlx-lm               # -> a local model phrases replies (Apple Silicon)
+```
+
+No `transformers`? recall falls back to keyword. No local model? it returns the matching facts
+instead of phrasing them. `researcher_bench.py` needs nothing at all.
+
+**What talking to your brain looks like** (all local, saved to `~/.personal_brain.json`):
+
+```
+you   > my daughter Mia just turned six
+brain > Happy 6th birthday, Mia!                         (it remembered)
+you   > I have a dentist appointment tomorrow at 9am in room 214
+brain > Got it — see you at 9am in room 214.             (remembered)
+you   > when is it?
+brain > The dentist appointment is tomorrow at 9am.      (follow-up resolved)
+you   > and where?
+brain > It's in room 214.                                (multi-turn)
+you   > can I eat a peanut butter sandwich?
+brain > Not if you're allergic to peanuts.              (recalled)
+```
+
+Just talk to it — it works out whether you're telling it something or asking. Everything stays on
+your machine; each person runs their own. Full usage + honest scope in [`apps/README.md`](apps/README.md).
+
+## The three apps in one line each
+
+- **`apps/researcher_bench.py`** — reproduce the context-memory decoupling on your machine (KV-cache
+  O(N) table vs the flat O(1) store, a flat-memory proof, lookup latency). No model needed.
+- **`apps/personal_brain.py`** — a private, on-device, conversational memory: talk to it, it
+  remembers facts and answers from them, with multi-turn follow-ups.
+- **`apps/webui.py`** — a local, Claude-style chat UI for the brain; open it in a browser tab.
 
 ## The idea in four sentences
 
