@@ -18,12 +18,17 @@ python3 apps/researcher_bench.py
 standard computer, no multi-GPU grant. **Does not show:** cheaper generation — that runs at
 transformer speed regardless. This fixes the context-*memory* cost, not inference cost.
 
-## `personal_brain.py` — a private, on-device fact memory
+## `personal_brain.py` — a private, on-device conversational memory
 
-Tell it things, ask in plain language. Everything is local and persistent (saved to
-`~/.personal_brain.json`). Uses a semantic embedder if `transformers` is installed (handles reworded
-questions), otherwise keyword matching; uses a local model to phrase answers if one is available,
-otherwise it returns the matching facts.
+Just talk to it. It figures out whether you're **telling** it something (it remembers) or **asking**
+(it answers from what it knows), holds the **last few turns** so follow-ups like *"and where is
+that?"* work, and replies in a warm, concise voice. Everything is local and persistent (saved to
+`~/.personal_brain.json`). `forget <text>` / `forget all` to manage; `AUTO_REMEMBER=0` to only save
+on an explicit `remember …`.
+
+Recall uses a semantic embedder if `transformers` is installed (handles reworded questions),
+otherwise keyword matching. The **talking** is your local model (Apple MLX by default) grounded in
+the recalled facts — with no model, it returns the matching facts directly.
 
 ```bash
 python3 apps/personal_brain.py remember "the project deadline is March 15"

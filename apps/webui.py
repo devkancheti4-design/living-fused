@@ -72,7 +72,7 @@ PAGE = """<!doctype html>
   </main>
   <footer>
     <div class="composer">
-      <textarea id="input" rows="1" placeholder="Ask anything… or 'remember the deadline is March 15'"></textarea>
+      <textarea id="input" rows="1" placeholder="Talk to me — tell me things or ask about them"></textarea>
       <button id="send" title="Send">↑</button>
     </div>
     <div class="hint">Runs entirely on your machine · <span id="facts">0 facts</span></div>
@@ -124,12 +124,8 @@ class Handler(BaseHTTPRequestHandler):
         except Exception: data = {}
         msg = (data.get("message") or "").strip()
         with lock:
-            if msg.lower().startswith("remember "):
-                brain.remember(msg[9:]); reply = {"role": "system", "text": "Remembered."}
-            elif not msg:
-                reply = {"role": "system", "text": "Type a question, or 'remember ...' to teach a fact."}
-            else:
-                reply = {"role": "assistant", "text": brain.ask(msg)}
+            text = brain.chat(msg) if msg else "Say something — tell me things or ask about them."
+            reply = {"role": "assistant", "text": text}
         self._send(200, json.dumps({**reply, "facts": len(brain.facts)}))
     def log_message(self, *a): pass
 
