@@ -181,6 +181,76 @@ memory (~0.5 GB per 1M facts here), while the **transformer's own weights + KV-c
 dominate at 7B+**; and the organ adds **~0 to per-token latency** (flat with context), so
 its cost is memory, not compute.
 
+## Cost & scaling — the real math
+
+The one property worth citing, with the formula and the measurement behind it. **Context
+length is decoupled from memory:** a transformer's KV-cache grows linearly with context; the
+integer store does not.
+
+**KV-cache a transformer needs, per token** (7B with GQA — 28 layers, 4 KV heads, 128 head-dim, fp16):
+
+```
+KV-cache = 2 × layers × KV-heads × head-dim × bytes
+         = 2 × 28 × 4 × 128 × 2  =  57,344 bytes/token  ≈  56 KB/token
+```
+
+| context length | transformer KV-cache | integer store (fixed #facts) |
+|---|---|---|
+| 1K   | 57 MB  | ~KB *(constant)* |
+| 100K | 6 GB   | ~KB |
+| 1M   | 57 GB  | ~KB |
+| 15M  | **860 GB** | ~KB |
+
+That is **O(N) vs O(1)** in context length — the store scales with number of facts, not tokens.
+
+**Measured operation costs** (10× each, one consumer laptop):
+
+| operation | cost |
+|---|---|
+| exact-key lookup | 0.33 µs, zero model calls |
+| recency-dominant integer write | 0.36 µs |
+| fused blend over the full vocab (per fire) | ~14 µs |
+| fused **generation** (transformer forward + blend) | **~120 ms/token, flat as memory grows 1K → 1M facts** |
+| transformer forward vs context length | 144 → 804 → 6,937 ms/token at 64 → 512 → 4,096 tokens |
+
+**A representative task, measured end-to-end** — a 15M-token stream where a cheap filter flagged
+~13 relational sentences for the model, then one multi-hop query:
+
+```
+15M-token stream (filter/count, no model)     :  0.2 s
+13 transformer extractions (only heavy calls) :  7.7 s
+1 query                                       :  0.9 s
+total on a laptop                             :  8.8 s   ≈ $0.000015 electricity
+```
+
+The transformer-only alternative for the same 15M-token context would need **~860 GB of
+KV-cache** — ~11× an 80 GB GPU just to *hold* the context (tens of $/hr of HBM), or it simply
+does not fit; most models cap context far below 15M anyway.
+
+### The honest scope of that cost — read before quoting it
+
+- The saving is **not cheaper generation.** The fused system generates at **transformer speed
+  (~120 ms/token)**, unchanged. It is flat with *stream length* only because the transformer is
+  fed a *bounded short context* (retrieved facts + query) while the memory lives in the flat store.
+- The saving comes from two things: **the model is invoked only on flagged sentences** (it sleeps
+  through filler), and **there is no KV-cache.** This applies to **sparse-fact long-context** work.
+  A task that must densely read or generate over *every* token gets none of it.
+- **RSS is a range, not a fixed number** — ~2.6–4.8 GB depending on phase and GPU-buffer state
+  (store is flat KB, weights ~1.3 GB fixed, total process RSS swings ~2×).
+- **Semantic retrieval is not replaced** — fuzzy/paraphrase matching needs an embedder (float
+  vectors + cosine), which *is* a vector DB. The integer store replaces an *exact-key* store (a
+  dict already is one), not semantic search.
+- **Reasoning is the model's** — the multi-hop "resolve" is a deterministic graph traversal over
+  extracted facts; the transformer does the extraction and the language.
+
+**The claim that survives every rerun:**
+
+> Context length is decoupled from memory — 0-byte KV-cache growth, O(1) integer lookups,
+> ~120 ms/token generation flat with stream length — so a million-token sparse-fact query runs in
+> flat kilobytes on a laptop for a fraction of a cent, where a transformer would need hundreds of
+> GB of KV-cache. The transformer weights and generation compute are unchanged; this fixes the
+> **context-memory** cost, not inference cost.
+
 ## "It only works if you ask the exact question" — the honest answer
 
 This is the most common — and most correct — objection, so it gets a direct answer.
