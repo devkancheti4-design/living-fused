@@ -1,19 +1,37 @@
 # living-fused
 
-**Your own AI memory — private, offline, and free to keep. Talk to it; it remembers.**
+TL;DR: a small deterministic memory you bolt onto a local LLM. You tell it a fact, it stores that
+fact exactly (as integers, not floats), and when you ask, it gives the model the exact fact instead
+of letting the model guess. So the model won't drift or invent things about stuff you've actually
+told it. Runs on your laptop, stays private, and the memory stays tiny no matter how long the input
+gets (there's no growing KV-cache).
 
-I built a *living fused* brain: a language model bolted to a flat integer memory that doesn't bloat
-your RAM. What that gets you:
+Why I built it: LLMs hallucinate and forget because everything they "know" is either frozen into the
+weights or crammed into a context window that costs memory and gets ignored anyway. I wanted a memory
+that sits outside the model, is exact, and is reproducible. Same input, same output, every time. If
+it saved a fact, it hands back that fact. It doesn't bluff.
 
-- 🧠 **Memory that costs nothing to grow** — a million facts live in kilobytes. No expanding
-  KV-cache, so long context doesn't eat your RAM or your GPU budget.
-- 🔒 **Private & offline** — it all runs on your laptop. Nothing leaves your machine, ever.
-- ⚡ **Instant once loaded** — the model loads once, then replies come back in a blink.
-- 📦 **Clone it, modify it** — the whole skeleton is here; swap in any model your machine can run.
-- 🔬 **Research without the GPU tax** — run long-context memory experiments on a normal computer,
-  no multi-GPU grant needed.
+What it does, plainly:
+- you give it facts, it stores them in a flat integer table;
+- when you ask, it finds the relevant ones and either hands them to the model to phrase (the
+  assistant app), or blends them straight into the model's next-token probabilities so the stored
+  fact wins over a guess (the research core);
+- that table doesn't grow with how many tokens you stream past it, only with how many facts you save.
 
-**Start in 30 seconds** with the apps below. Or watch the architecture train itself from scratch:
+"How is this different from a markdown file or RAG?" Honest answer: for the assistant demo, not that
+different. It retrieves facts and asks a model, which plenty of tools do, and yes you could rig
+something similar with markdown plus a retriever. What's actually new is two things. One, the memory
+is deterministic and exact, so recall never drifts and you can force the model to use the stored
+value instead of a hallucinated one. Two, it lives outside the context window, so a million tokens of
+history cost kilobytes instead of gigabytes of KV-cache. That second part is the real result. Judge
+it by the benchmark, which runs in one command.
+
+Status, so nobody's misled: this is a research demo, not a product. Some of the code is rough and got
+built fast. But the numbers are real and you can reproduce them yourself. `researcher_bench.py` needs
+nothing installed. If a number doesn't reproduce, open an issue and I'll fix it or take it down.
+
+Fastest way to see it is the apps below. To watch the core memory train from scratch and beat its own
+frozen copy:
 
 ```bash
 git clone https://github.com/devkancheti4-design/living-fused.git
