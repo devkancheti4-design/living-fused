@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+life.json
+demo_life.json
+*.tmp
+.DS_Store

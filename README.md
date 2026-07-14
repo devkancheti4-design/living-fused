@@ -61,6 +61,32 @@ install), you will watch:
 
 Fixed seeds — your numbers should match the table. If they don't, open an issue.
 
+## 📦 The Memory Box — [`life/`](life/) — fuse any model, one command
+
+The memory organ, packaged standalone: one stdlib file, zero dependencies,
+works with **any** model on **any** device — Claude, GPT, a local ollama
+model, anything. One command fuses it into any project:
+
+```bash
+bash life/fuse.sh ~/your/project
+```
+
+That single command: runs the 16-check smoke test (refuses to fuse a failing
+organ) → installs `life.py` → writes the memory protocol into `CLAUDE.md` and
+`AGENTS.md` (so **Claude Code and Cursor sessions in that directory are fused
+automatically — nothing to paste**) → detects every model backend on your
+device and prints how each one connects → proves the put/get/ABSTAIN
+round-trip live. From then on, the agent in that directory stores facts
+exactly, recalls them verbatim, and says "not stored" instead of guessing.
+
+Big API models (Claude/GPT/Gemini): two function-calling schemas in
+[`life/README.md`](life/README.md) §5d route to the same file.
+Critics asking what this is: [`life/WHAT_IS_LIFE.md`](life/WHAT_IS_LIFE.md) —
+every answer is a command, not a claim. The box ships its own proof
+(`life/proof/`, reproduces in ~2 min) and honest limits
+([`life/README.md`](life/README.md) §7): exact-key only, doesn't reason,
+pairs with RAG for paraphrases.
+
 ## Quick start — the apps
 
 Clone it and run. The apps **adapt to your laptop** (detect RAM, pick a model tier) and **degrade
