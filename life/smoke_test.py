@@ -137,10 +137,15 @@ shutil.copy(cli, os.path.join(docdir, "life.py"))
 denv = dict(os.environ, LIFE_DB=os.path.join(docdir, "life.json"))
 r_bare = subprocess.run([sys.executable, "life.py", "doctor"],
                         capture_output=True, text=True, cwd=docdir, env=denv)
-check("doctor: NOT FULLY WIRED in a bare dir (exit 1)",
-      "NOT FULLY WIRED" in r_bare.stdout and r_bare.returncode == 1)
+check("doctor: NOT WIRED in a bare dir (exit 1)",
+      "NOT WIRED" in r_bare.stdout and r_bare.returncode == 1)
 with open(os.path.join(docdir, "CLAUDE.md"), "w") as fh:
     fh.write("<!-- LIFE-MEMORY BEGIN -->\nprotocol\n<!-- LIFE-MEMORY END -->\n")
+r_wired = subprocess.run([sys.executable, "life.py", "doctor"],
+                         capture_output=True, text=True, cwd=docdir, env=denv)
+check("doctor: WIRED, NOT YET USED when fused but no fact (exit 0)",
+      "WIRED, NOT YET USED" in r_wired.stdout and r_wired.returncode == 0,
+      f"rc={r_wired.returncode}")
 subprocess.run([sys.executable, "life.py", "put", "server.ip", "10.0.0.1"],
                capture_output=True, cwd=docdir, env=denv)
 r_green = subprocess.run([sys.executable, "life.py", "doctor"],

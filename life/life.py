@@ -239,7 +239,8 @@ def _doctor(db, life):
     print("LIFE DOCTOR — is the memory wired and working here?")
     print("-" * 60)
 
-    # 1. protocol installed where an agent will read it?
+    # 1. protocol installed where an agent will read it? (this is what makes
+    #    fusion automatic — the ONLY thing that gates 'wired')
     proto = False
     for f in ("CLAUDE.md", "AGENTS.md"):
         if os.path.exists(f):
@@ -252,23 +253,27 @@ def _doctor(db, life):
         line(False, "protocol in CLAUDE.md/AGENTS.md", "NOT found — run fuse.sh, "
              "or paste README §1 into your agent (required for claude.ai web)")
 
-    # 2. the memory file — does it exist and hold facts?
+    # 2. the memory file — informational: is it being USED yet? (0 facts right
+    #    after fusing is NORMAL, not a failure — it just hasn't been used.)
+    n = len(life.store) if os.path.exists(db) else 0
+    in_use = n > 0
     if os.path.exists(db):
-        n = len(life.store)
         age = time.time() - os.path.getmtime(db)
         when = (f"{int(age)}s ago" if age < 90 else
                 f"{int(age/60)}m ago" if age < 5400 else f"{int(age/3600)}h ago")
-        line(n > 0, f"memory file {db}", f"{n} facts, last written {when}")
-        if n:
+        print(f"  [{'OK ' if in_use else '.. '}] memory file {db}  "
+              f"{n} facts, last written {when}")
+        if in_use:
             k = next(iter(life.store))
             print(f"        newest-looking sample: {k!r} -> {life.recall(k)!r}")
         else:
-            print("        (empty — the agent hasn't stored a fact yet; that's the"
-                  " signal to watch: this number should grow as you use it)")
+            print("        (empty — not used yet; watch this count climb as the"
+                  " agent stores facts. Not a fault.)")
     else:
-        line(False, f"memory file {db}", "does not exist yet — no fact stored so far")
+        print(f"  [.. ] memory file {db}  none yet — no fact stored so far (normal"
+              " before first use)")
 
-    # 3. live round-trip: prove the mechanism works right now
+    # 3. live round-trip: prove the mechanism itself works right now
     probe = "__doctor.probe__"
     life.learn(probe, "works")
     hit = life.recall(probe) == "works"
@@ -278,11 +283,19 @@ def _doctor(db, life):
          f"put/get verbatim={hit}, abstain-on-unknown={miss}")
 
     print("-" * 60)
-    print("  RESULT: " + ("FUSED AND WORKING — the agent here can store & recall exactly."
-          if ok else "NOT FULLY WIRED — see the XX lines above."))
-    print("  How to SEE it live: tell your agent a fact, then run"
-          " `python3 life.py stats`\n  — the fact count must go up. Then in a NEW"
-          " session ask for that fact back.")
+    if ok and in_use:
+        print("  RESULT: FUSED AND WORKING — wired, and already storing facts.")
+    elif ok:
+        print("  RESULT: WIRED, NOT YET USED — the agent here CAN use the Life;"
+              " it just\n          hasn't stored a fact yet. Use it, then re-run"
+              " doctor to see the count climb.")
+    else:
+        print("  RESULT: NOT WIRED — the protocol isn't installed, so an agent"
+              " here won't\n          use the Life. Run fuse.sh (or paste README"
+              " §1). See the XX line above.")
+    print("  Prove it end-to-end: put a fact, quit, and in a NEW session"
+          " `get` it back\n  verbatim — and `get` a key you never stored to see"
+          " ABSTAIN.")
     return 0 if ok else 1
 
 
