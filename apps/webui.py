@@ -13,7 +13,7 @@ In the chat: ask anything; start a message with 'remember ' to teach it a fact.
 Honest scope is the same as personal_brain.py — exact/flat memory, embedder recall with holes,
 answers at your local model's quality.
 """
-import sys, os, json, threading
+import sys, os, json, threading, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import personal_brain as pb
@@ -132,10 +132,23 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     host = os.environ.get("HOST", "127.0.0.1"); port = int(os.environ.get("PORT", "8765"))
-    print(f"Personal Brain UI  ->  http://{host}:{port}")
+    url = f"http://{host}:{port}"
+    server = ThreadingHTTPServer((host, port), Handler)
+    print("=" * 60)
+    print(f"  Personal Brain UI is running at:  {url}")
     print(f"  {len(brain.facts)} facts loaded · recall: {brain.mode} · all local")
-    print("  open that URL in a browser tab. Ctrl+C to stop.")
-    ThreadingHTTPServer((host, port), Handler).serve_forever()
+    print("=" * 60)
+    print(f"  Opening {url} in your browser now.")
+    print(f"  If it doesn't open, paste that address into a browser tab")
+    print(f"  (the address bar at the TOP of the browser — NOT this terminal).")
+    print("  Leave this window running. Press Ctrl+C here to stop.")
+    # auto-open once the server is actually listening (stdlib, cross-platform)
+    if os.environ.get("NO_BROWSER") != "1":
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nstopped. your facts are saved in ~/.personal_brain.json")
 
 if __name__ == "__main__":
     main()

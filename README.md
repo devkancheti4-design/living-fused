@@ -98,7 +98,7 @@ cd living-fused
 
 python3 apps/researcher_bench.py     # KV-cache / cost benchmark — needs NOTHING installed
 python3 apps/personal_brain.py       # your private conversational memory (terminal)
-python3 apps/webui.py                # a Claude-style chat app -> http://127.0.0.1:8765
+python3 apps/webui.py                # chat app -> AUTO-OPENS your browser at http://127.0.0.1:8765
 ```
 
 Optional, for the full experience:
@@ -140,8 +140,10 @@ Nothing here is broken; three things LOOK like a hang and aren't:
    everything is cached and offline after that. **Offline with nothing cached?**
    They now skip those tiers in ~3 seconds and fall back to keyword/facts-only
    recall instead of waiting on the network.
-2. **`apps/webui.py` is a server** — it prints a URL and then sits quietly BY
-   DESIGN. Open http://127.0.0.1:8765 in your browser; the app is there.
+2. **`apps/webui.py` is a server** — it now AUTO-OPENS your browser and then
+   sits quietly BY DESIGN (that is not a hang — the app is in the browser).
+   The URL `http://127.0.0.1:8765` goes in a BROWSER address bar, never in the
+   terminal — typing a URL into the shell gives `zsh: no such file or directory`.
 3. **`apps/personal_brain.py` is a chat** — when you see `you >` it is waiting
    for YOU to type.
 
