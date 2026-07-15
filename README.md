@@ -117,23 +117,49 @@ pairs with RAG for paraphrases.
 
 ## Quick start — the apps
 
-Clone it and run. The apps **adapt to your laptop** (detect RAM, pick a model tier) and **degrade
-gracefully**, so they run on any machine:
+> **Copy ONE line at a time. Don't paste a whole block.** Each command is on its
+> own line on purpose.
+
+**First time only** — clone it (do this once):
 
 ```bash
 git clone https://github.com/devkancheti4-design/living-fused.git
-cd living-fused
-
-python3 apps/researcher_bench.py     # KV-cache / cost benchmark — needs NOTHING installed
-python3 apps/personal_brain.py       # your private conversational memory (terminal)
-python3 apps/webui.py                # chat app, auto-opens your browser at http://127.0.0.1:8765
 ```
 
-Optional, for the full experience:
+**Every time you want to use it** — open a terminal and run these two lines:
 
 ```bash
-pip install transformers torch   # optional: semantic recall (understands reworded questions)
-pip install mlx-lm               # optional: a local model phrases replies (Apple Silicon)
+cd living-fused
+```
+```bash
+python3 apps/webui.py
+```
+
+That's it — the chat opens in your browser at `http://127.0.0.1:8765`. To stop it,
+press Ctrl-C in the terminal. To use it again later (after a reboot, next week,
+whenever), run those same two lines again. **Your facts are still there** — they
+live in a file on your disk, not in the running program.
+
+Prefer the terminal over a browser? Use this instead of `apps/webui.py`:
+
+```bash
+python3 apps/personal_brain.py
+```
+
+Want the cost benchmark (needs nothing installed)?
+
+```bash
+python3 apps/researcher_bench.py
+```
+
+**Optional, one time, for the best experience** (reworded-question recall + a
+local model to phrase replies). Skip it and the apps still work in a simpler mode:
+
+```bash
+pip install transformers torch
+```
+```bash
+pip install mlx-lm
 ```
 
 No `transformers`? recall falls back to keyword. No local model? it returns the matching facts
