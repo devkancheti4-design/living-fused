@@ -48,18 +48,37 @@ a tool-running agent executes the commands itself; a chat-only model falls back
 to printing them for you. Either way the model now has memory that never
 paraphrases and never bluffs.
 
-## 2. Install & smoke test
+### Which "Claude" do you have? (this decides the setup)
 
-**One command (inside the [living-fused](https://github.com/devkancheti4-design/living-fused) repo):**
+| You have… | Can it run `life.py` itself? | What to do |
+|---|---|---|
+| **Claude Code** (terminal) | **Yes** — and it auto-reads `CLAUDE.md` | `bash life/fuse.sh .` (in living-fused) or drop `life.py` + the prompt above into your project's `CLAUDE.md`. Fully automatic after that. |
+| **Cursor / Codex / Aider** | **Yes** | Same — the prompt in `CLAUDE.md`/`AGENTS.md`, or paste it once. |
+| **Claude API** (your own code) | **Yes**, via tools | Register the two tool schemas in §5d; route them to `life.py`. |
+| **claude.ai in a browser** | **No** — it can't touch your files | **Manual only:** you run `python3 life.py get "key"` in your terminal and paste the value into the chat; run `put` yourself when you want to store something. The exactness/abstention still hold — but you are the hands. |
+
+### Is it actually working? — `python3 life.py doctor`
+
+Run it inside your project to get a green/red checklist:
 
 ```bash
-bash life/fuse.sh ~/your/project
+python3 life.py doctor
+```
+```
+  [OK ] protocol installed in CLAUDE.md  -> Claude Code / Cursor here auto-use the Life
+  [OK ] memory file life.json  2 facts, last written 12s ago
+        newest-looking sample: 'server.ip' -> '192.168.7.203'
+  [OK ] live round-trip  put/get verbatim=True, abstain-on-unknown=True
+  RESULT: FUSED AND WORKING — the agent here can store & recall exactly.
 ```
 
-smoke-tests the organ, installs `life.py`, writes the protocol into that
-project's `CLAUDE.md`/`AGENTS.md` (Claude Code & Cursor fuse automatically —
-nothing to paste), detects your device's model backends, and proves the
-put/get/ABSTAIN round-trip. Manual path below.
+If the protocol line is red, the agent won't use the Life yet — fuse it. The
+**decisive** test that it's live: tell your agent a fact, run `python3 life.py
+stats`, and watch the fact count go **up** — then ask for it back in a brand-new
+session. If the count grew and the new session recalls it verbatim, it's working.
+See [§9 How you KNOW it's working](#9-how-you-know-its-working-as-the-creator).
+
+## 2. Install & smoke test
 
 ```bash
 git clone https://github.com/devkancheti4-design/life-memory
@@ -244,6 +263,41 @@ asked for.
   fact and it will recall the wrong fact, exactly, forever (until you revise).
 - **No commercial-value claim.** This repo claims exactly what its tests
   measure, nothing more.
+
+## 9. How you KNOW it's working (as the creator)
+
+You built it — so don't trust it, *observe* it. Three signals, in order of
+strength:
+
+1. **`python3 life.py doctor`** — the checklist above. Green protocol line =
+   the agent is wired to use it. Green memory line with a rising fact count =
+   it's actually being used.
+2. **The fact count grows as you talk.** Store nothing manually. Just use your
+   agent normally, then run `python3 life.py stats` before and after a session.
+   If the agent is honoring the protocol, `keys N` climbs — each new fact the
+   user stated is now on disk. If it never moves, the agent isn't calling
+   `put` (protocol not loaded, or the model ignored it — check `doctor`).
+3. **The cross-session recall test** — the one that can't be faked:
+
+   ```bash
+   # session 1
+   python3 life.py put "launch.date" "March 14"
+   # now literally quit / close the terminal / reboot, then:
+   # session 2 (fresh process, days later)
+   python3 life.py get "launch.date"     # -> March 14   (verbatim, or it's broken)
+   python3 life.py get "launch.tim"      # -> ABSTAIN     (typo abstains, never guesses)
+   ```
+
+   If session 2 returns `March 14` and the typo returns `ABSTAIN`, the Life is
+   doing its whole job: exact recall across process death, and honest silence
+   on what it doesn't have. If a browser-based assistant instead *guesses* a
+   date when you didn't wire the Life in — that's the exact failure the Life
+   exists to remove, and proof you need the wiring, not just the file.
+
+**One honest caveat for the browser case:** in **claude.ai** the model can't run
+`life.py`, so "working" means *you* ran `get` and pasted the value — the model
+can't prove it used the Life because it never touched it. Only Claude Code /
+Cursor / API can make the fusion automatic and self-evident in `doctor`.
 
 ## 8. License
 

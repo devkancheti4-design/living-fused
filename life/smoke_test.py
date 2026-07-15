@@ -11,6 +11,7 @@ Run:  python3 smoke_test.py          (~10 s, stdlib only)
 Exit: 0 = all [EXACT] checks pass, 1 = any failure.
 """
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -130,6 +131,24 @@ check("CLI abstain prints ABSTAIN, exit 3",
 print(f"  CLI round-trip {ms:.0f} ms [HW] — interpreter + file load;"
       " the µs figure below is in-process recall()")
 os.path.exists(db) and os.unlink(db)
+# doctor: red in a bare dir, green in a fused dir with a fact
+docdir = tempfile.mkdtemp()
+shutil.copy(cli, os.path.join(docdir, "life.py"))
+denv = dict(os.environ, LIFE_DB=os.path.join(docdir, "life.json"))
+r_bare = subprocess.run([sys.executable, "life.py", "doctor"],
+                        capture_output=True, text=True, cwd=docdir, env=denv)
+check("doctor: NOT FULLY WIRED in a bare dir (exit 1)",
+      "NOT FULLY WIRED" in r_bare.stdout and r_bare.returncode == 1)
+with open(os.path.join(docdir, "CLAUDE.md"), "w") as fh:
+    fh.write("<!-- LIFE-MEMORY BEGIN -->\nprotocol\n<!-- LIFE-MEMORY END -->\n")
+subprocess.run([sys.executable, "life.py", "put", "server.ip", "10.0.0.1"],
+               capture_output=True, cwd=docdir, env=denv)
+r_green = subprocess.run([sys.executable, "life.py", "doctor"],
+                         capture_output=True, text=True, cwd=docdir, env=denv)
+check("doctor: FUSED AND WORKING once fused + a fact exists (exit 0)",
+      "FUSED AND WORKING" in r_green.stdout and r_green.returncode == 0,
+      f"rc={r_green.returncode}")
+shutil.rmtree(docdir, ignore_errors=True)
 
 print("\n" + "=" * 68)
 print("9. SCALE — 100,000 facts: latency + memory [HW — reported, not gated]")

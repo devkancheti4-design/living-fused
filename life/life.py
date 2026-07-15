@@ -23,6 +23,7 @@ CLI:
   python3 life.py forget KEY         delete a key (exit 3 if it was absent)
   python3 life.py stats              keys, disk bytes, identity sha
   python3 life.py sha                identity hash (byte-exact twins match)
+  python3 life.py doctor             is the Life fused & working HERE? (checklist)
 
 The database file is ./life.json (override: --db PATH or env LIFE_DB).
 
@@ -216,10 +217,73 @@ def _cli(argv):
               + f"  sha {life.sha()}  db {db}")
     elif cmd == "sha":
         print(life.sha())
+    elif cmd == "doctor":
+        return _doctor(db, life)
     else:
         print(__doc__.strip())
         return 2
     return 0
+
+
+def _doctor(db, life):
+    """Is the Life actually fused here, and is it being used? A green/red
+    checklist a creator runs in a project to KNOW, not hope."""
+    import time
+    ok = True
+
+    def line(good, label, detail=""):
+        nonlocal ok
+        ok = ok and good
+        print(f"  [{'OK ' if good else 'XX '}] {label}" + (f"  {detail}" if detail else ""))
+
+    print("LIFE DOCTOR — is the memory wired and working here?")
+    print("-" * 60)
+
+    # 1. protocol installed where an agent will read it?
+    proto = False
+    for f in ("CLAUDE.md", "AGENTS.md"):
+        if os.path.exists(f):
+            with open(f, encoding="utf-8") as fh:
+                if "LIFE-MEMORY BEGIN" in fh.read():
+                    proto = True
+                    line(True, f"protocol installed in {f}",
+                         "-> Claude Code / Cursor here auto-use the Life")
+    if not proto:
+        line(False, "protocol in CLAUDE.md/AGENTS.md", "NOT found — run fuse.sh, "
+             "or paste README §1 into your agent (required for claude.ai web)")
+
+    # 2. the memory file — does it exist and hold facts?
+    if os.path.exists(db):
+        n = len(life.store)
+        age = time.time() - os.path.getmtime(db)
+        when = (f"{int(age)}s ago" if age < 90 else
+                f"{int(age/60)}m ago" if age < 5400 else f"{int(age/3600)}h ago")
+        line(n > 0, f"memory file {db}", f"{n} facts, last written {when}")
+        if n:
+            k = next(iter(life.store))
+            print(f"        newest-looking sample: {k!r} -> {life.recall(k)!r}")
+        else:
+            print("        (empty — the agent hasn't stored a fact yet; that's the"
+                  " signal to watch: this number should grow as you use it)")
+    else:
+        line(False, f"memory file {db}", "does not exist yet — no fact stored so far")
+
+    # 3. live round-trip: prove the mechanism works right now
+    probe = "__doctor.probe__"
+    life.learn(probe, "works")
+    hit = life.recall(probe) == "works"
+    miss = life.recall("__doctor.never__") is None
+    life.forget(probe)
+    line(hit and miss, "live round-trip",
+         f"put/get verbatim={hit}, abstain-on-unknown={miss}")
+
+    print("-" * 60)
+    print("  RESULT: " + ("FUSED AND WORKING — the agent here can store & recall exactly."
+          if ok else "NOT FULLY WIRED — see the XX lines above."))
+    print("  How to SEE it live: tell your agent a fact, then run"
+          " `python3 life.py stats`\n  — the fact count must go up. Then in a NEW"
+          " session ask for that fact back.")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
