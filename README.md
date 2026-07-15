@@ -132,8 +132,8 @@ python3 apps/webui.py                # chat app, auto-opens your browser at http
 Optional, for the full experience:
 
 ```bash
-pip install transformers torch   # -> semantic recall (understands reworded questions)
-pip install mlx-lm               # -> a local model phrases replies (Apple Silicon)
+pip install transformers torch   # optional: semantic recall (understands reworded questions)
+pip install mlx-lm               # optional: a local model phrases replies (Apple Silicon)
 ```
 
 No `transformers`? recall falls back to keyword. No local model? it returns the matching facts
