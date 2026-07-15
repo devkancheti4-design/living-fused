@@ -26,9 +26,18 @@ that?"* work, and replies in a warm, concise voice. Everything is local and pers
 `~/.personal_brain.json`). `forget <text>` / `forget all` to manage; `AUTO_REMEMBER=0` to only save
 on an explicit `remember …`.
 
-Recall uses a semantic embedder if `transformers` is installed (handles reworded questions),
-otherwise keyword matching. The **talking** is your local model (Apple MLX by default) grounded in
-the recalled facts — with no model, it returns the matching facts directly.
+Recall has **two layers**:
+- **Exact pins (the Life layer)** — your name and any `my <thing> is <value>` fact (server ip,
+  wifi password, phone number) are stored as exact key→value and **always** injected into context,
+  so they can never be out-ranked or forgotten. Name introductions are caught even in short/casual
+  forms like `I'm Devieswar` that the semantic filter would drop. `what is my name?` is answered
+  exactly, even with no model loaded.
+- **Semantic recall** — for everything else (freeform notes), a float embedder if `transformers`
+  is installed (handles reworded questions), otherwise keyword matching. Top-k, so it's fuzzy by
+  design — which is exactly why identity facts live in the exact pin layer instead.
+
+The **talking** is your local model (Apple MLX by default) grounded in both layers — with no model,
+it returns the pinned/matching facts directly.
 
 ```bash
 python3 apps/personal_brain.py remember "the project deadline is March 15"

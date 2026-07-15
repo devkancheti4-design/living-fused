@@ -24,6 +24,10 @@ STORE = os.path.expanduser("~/.personal_brain.json")
 AUTO_REMEMBER = os.environ.get("AUTO_REMEMBER", "1") != "0"
 GREET = {"hi", "hello", "hey", "yo", "sup", "thanks", "thank you", "thx", "ok", "okay", "k",
          "cool", "nice", "great", "yes", "no", "yeah", "nope", "bye", "goodbye", "lol", "haha"}
+# words that follow "I'm"/"I am" but are NOT a name (so "I'm allergic" != name "allergic")
+_NOT_A_NAME = {"going", "allergic", "here", "not", "sorry", "sure", "fine", "good", "ok",
+               "okay", "ready", "done", "tired", "happy", "working", "looking", "trying",
+               "a", "an", "the", "so", "really", "very", "just", "still", "at", "in", "on"}
 
 def _hf_cached(repo):
     """Is this model already in the local HF cache? (no network)"""
@@ -49,6 +53,7 @@ class Brain:
 
     def __init__(self):
         self.facts = []
+        self.pins = {}              # EXACT key->value (name, "my X is Y"): the Life layer.
         self.history = []           # [{role, content}, ...]  (per session, not persisted)
         self._load()
         self.mode = "keyword"
@@ -57,11 +62,54 @@ class Brain:
     # ---------- persistence ----------
     def _load(self):
         if os.path.exists(STORE):
-            try: self.facts = json.load(open(STORE)).get("facts", [])
-            except Exception: self.facts = []
+            try:
+                d = json.load(open(STORE))
+                self.facts = d.get("facts", [])
+                self.pins = d.get("pins", {})   # back-compat: old files have no pins
+            except Exception:
+                self.facts = []; self.pins = {}
 
     def _save(self):
-        json.dump({"facts": self.facts}, open(STORE, "w"))
+        json.dump({"facts": self.facts, "pins": self.pins}, open(STORE, "w"))
+
+    # ---------- EXACT pinned facts (the Life layer — never fuzzy, never out-ranked) ----------
+    def _extract_pins(self, message):
+        """Capture identity/attribute facts as EXACT key->value. These are ALWAYS
+        injected into context, so — unlike top-k semantic recall — they can never
+        be out-ranked or forgotten. Name introductions are caught even when they
+        are too short/casual for the semantic _is_fact filter (the reported bug:
+        'I'm Devieswar' was silently dropped)."""
+        m = message.strip()
+        # name: "my name is X" | "I'm X" | "I am X" | "call me X" | "name's X" | "this is X"
+        nm = re.search(r"\b(?:my name is|i am|i'm|call me|name's|name is|this is)\s+"
+                       r"([A-Z][\w'-]*(?:\s+[A-Z][\w'-]*){0,2})", m, re.I)
+        if nm:
+            cand = nm.group(1).strip()
+            # reject obvious non-names ("I'm going", "I'm allergic", ...)
+            if cand.lower().split()[0] not in _NOT_A_NAME:
+                self.pins["name"] = cand
+        # attributes: "my <attr> is <value>"  (server ip, wifi password, phone number, ...)
+        # value may contain dots (IPs, versions, decimals); stop at comma/semicolon/
+        # newline or a sentence-ending period, and trim trailing sentence punctuation.
+        for a, v in re.findall(r"\bmy\s+([\w ]{2,30}?)\s+(?:is|are)\s+([^,;\n]{1,60})", m, re.I):
+            a = a.strip().lower()
+            v = re.sub(r"[.!?\s]+$", "", v.strip())  # drop trailing '.', keep 192.168.1.9
+            if a and a != "name" and v:
+                self.pins[a] = v
+        return bool(nm) or ("my " in m.lower() and " is " in m.lower())
+
+    def _pinned_context(self):
+        return "\n".join(f"- {k}: {v}" for k, v in self.pins.items())
+
+    def _answer_from_pins(self, query):
+        """Direct exact answer for pin queries — works even with no model loaded."""
+        q = query.lower()
+        if "name" in q and "name" in self.pins:
+            return f"Your name is {self.pins['name']}."
+        for k, v in self.pins.items():
+            if k != "name" and k in q:
+                return f"Your {k} is {v}."
+        return None
 
     # ---------- retrieval ----------
     def _try_embedder(self):
@@ -131,17 +179,27 @@ class Brain:
         if low.startswith("remember "):
             self.remember(message[9:]); return f"Got it — I'll remember that. ({len(self.facts)} saved)"
         if low.startswith("forget all"):
-            self.facts = []; self._vecs = None; self._save(); self.history = []; return "Cleared everything I had."
+            self.facts = []; self._vecs = None; self.pins = {}; self._save(); self.history = []; return "Cleared everything I had."
         if low.startswith("forget "):
-            target = message[7:].strip().lower(); before = len(self.facts)
+            target = message[7:].strip().lower(); before = len(self.facts) + len(self.pins)
             self.facts = [f for f in self.facts if target not in f.lower()]
+            self.pins = {k: v for k, v in self.pins.items()
+                         if target not in k.lower() and target not in v.lower()}
             if self.mode == "semantic": self._vecs = self._embed(self.facts) if self.facts else None
-            self._save(); return f"Forgot {before - len(self.facts)} matching note(s)."
+            self._save(); return f"Forgot {before - len(self.facts) - len(self.pins)} matching note(s)."
+        # EXACT pins first: capture identity/attributes on EVERY message (even short
+        # ones the semantic filter drops), and answer pin questions exactly.
+        saved_pin = self._extract_pins(message) if AUTO_REMEMBER else False
+        if saved_pin: self._save()
+        if self._is_question(message):
+            exact = self._answer_from_pins(message)
+            if exact:
+                self._push(message, exact); return exact
         if AUTO_REMEMBER and self._is_fact(message):
             self.remember(message)
             reply = self._respond(message, self.recall(message), just_saved=True)
             self._push(message, reply); return reply
-        reply = self._respond(message, self.recall(message))
+        reply = self._respond(message, self.recall(message), just_saved=saved_pin)
         self._push(message, reply); return reply
 
     def ask(self, q):  # backward compatible
@@ -155,6 +213,9 @@ class Brain:
         ctx = "\n".join(f"- {f}" for f, _ in hits) if hits else "(no matching notes)"
         sysmsg = self.PERSONA
         if just_saved: sysmsg += "\nThe user just told you a new fact — acknowledge it warmly in one short line."
+        # EXACT pinned facts are ALWAYS in context — never out-ranked by top-k recall.
+        if self.pins:
+            sysmsg += "\n\nAlways-true facts about the user (exact, never guess these):\n" + self._pinned_context()
         sysmsg += "\n\nSaved notes relevant to this turn:\n" + ctx
         msgs = [{"role": "system", "content": sysmsg}] + self.history[-self.MAX_TURNS * 2:] + \
                [{"role": "user", "content": message}]
