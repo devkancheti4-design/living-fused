@@ -129,6 +129,78 @@ brain > Not if you're allergic to peanuts.              (recalled)
 Just talk to it — it works out whether you're telling it something or asking. Everything stays on
 your machine; each person runs their own. Full usage + honest scope in [`apps/README.md`](apps/README.md).
 
+## Personal assistant — every command
+
+**Start it**
+```bash
+python3 apps/personal_brain.py            # interactive chat in the terminal (type at `you >`)
+python3 apps/personal_brain.py "message"  # one-shot: send one message, print the reply, exit
+python3 apps/webui.py                      # browser chat — auto-opens http://127.0.0.1:8765
+```
+
+**Talk to it (inside the chat — plain English, no syntax needed)**
+```
+I'm Devieswar                     # tells it your name (pinned exactly, never forgotten)
+my server ip is 192.168.1.9       # any "my X is Y" fact is pinned exactly
+I have a dentist appt at 9am      # freeform notes are remembered too
+what is my name?                  # ask anything — exact facts answered verbatim
+remember <anything>               # force-save a note explicitly
+forget <text>                     # delete notes/pins matching <text>
+forget all                        # wipe this brain
+quit   (or Ctrl-C)                # leave (your facts are already saved)
+```
+
+**Make your memory durable / portable (survives a lost laptop, follows you across machines)**
+```bash
+# point the memory at a synced, backed-up folder (iCloud shown; Dropbox/Drive work too)
+export BRAIN_DB="$HOME/Library/Mobile Documents/com~apple~CloudDocs/brain.json"   # the chat app
+export LIFE_DB="$HOME/Library/Mobile Documents/com~apple~CloudDocs/life.json"     # the life.py store
+python3 apps/personal_brain.py    # now reads/writes the synced file
+cp ~/.personal_brain.json ~/brain.backup.json                                    # or just back up the one file
+```
+
+**Options**
+```bash
+AUTO_REMEMBER=0 python3 apps/personal_brain.py   # only save on explicit "remember ..."
+NO_BROWSER=1   python3 apps/webui.py             # don't auto-open the browser
+HOST=0.0.0.0 PORT=9000 python3 apps/webui.py     # bind the web UI elsewhere
+```
+
+**The exact memory directly (no chat, for scripts/agents)**
+```bash
+python3 life/life.py put "wifi.password" "Rose99"   # store / revise (newest wins)
+python3 life/life.py get "wifi.password"            # exact recall, or ABSTAIN (exit 3)
+python3 life/life.py history "wifi.password"        # every past value
+python3 life/life.py doctor                         # is memory wired & working here?
+python3 life/life.py stats                          # fact count + identity sha
+```
+
+### "Why did it forget a fact I told it yesterday?"
+
+The memory does **not** forget on its own — a saved fact is a line in a file that
+survives reboots and any length of time (proven: back-date the file 10 days, a
+fresh process still reads it byte-identical). If a fact from yesterday is gone,
+it is exactly one of these, and none of them is the memory decaying:
+
+1. **The file was deleted or reset.** The facts live in `~/.personal_brain.json`
+   (or `$BRAIN_DB`). If that file was removed — by a cleanup, a `forget all`, a
+   reinstall, or a different tool — the facts went with it. Fix: turn on the
+   synced/backup path above so it can't be lost.
+2. **An older version didn't capture it.** Before the pin layer, a short intro
+   like "I'm Dev" (under 3 words) was silently dropped and never saved. Fixed
+   now — plus migration promotes names already in old files on next launch.
+   `git pull` to get the fix.
+3. **It's on a different machine or path.** The memory is a *local* file, not a
+   cloud account. A fact saved on laptop A, or under a different `$BRAIN_DB`,
+   isn't on laptop B. Use one synced path (above) to share it across machines.
+4. **You committed the code but not the facts — by design.** `life.json` and
+   `~/.personal_brain.json` are **gitignored on purpose**; a `git push` ships the
+   *tool*, never your private facts. GitHub is not where your memory is stored.
+
+Check what's actually saved right now: `python3 life/life.py stats`, or `cat
+~/.personal_brain.json`. If the count is 0, the file was cleared — tell it the
+fact once more and, with a synced `$BRAIN_DB` set, it stays for good.
+
 ## Do my facts survive? (reboots, 10 days off, GitHub) — read this
 
 **Yes, across time and reboots — the memory is a plain file on your disk.** It
