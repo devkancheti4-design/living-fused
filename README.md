@@ -152,18 +152,30 @@ Want the cost benchmark (needs nothing installed)?
 python3 apps/researcher_bench.py
 ```
 
-**Optional, one time, for the best experience** (reworded-question recall + a
-local model to phrase replies). Skip it and the apps still work in a simpler mode:
+**By default the apps download NOTHING** and run on exact + keyword recall —
+your name, `my X is Y` facts, and notes all work, instantly and offline. The two
+downloads below are **fully optional and opt-in**; skip them and nothing breaks.
+
+**Optional — reworded-question ("semantic") recall.** A ~90 MB embedder that
+matches questions you've worded differently. It is **off by default** and only
+downloads when you explicitly turn it on:
 
 ```bash
 pip install transformers torch
 ```
 ```bash
+BRAIN_SEMANTIC=1 python3 apps/webui.py
+```
+
+**Optional — a local model to phrase replies in full sentences** (several-GB
+model, downloads once on first message; without it the app just returns the
+facts directly):
+
+```bash
 pip install mlx-lm
 ```
 
-No `transformers`? recall falls back to keyword. No local model? it returns the matching facts
-instead of phrasing them. `researcher_bench.py` needs nothing at all.
+`researcher_bench.py` needs nothing at all.
 
 **What talking to your brain looks like** (all local, saved to `~/.personal_brain.json`):
 
@@ -227,6 +239,7 @@ backup: `cp ~/.personal_brain.json ~/brain.backup.json`.
 
 | Command | Effect |
 |---|---|
+| `BRAIN_SEMANTIC=1 python3 apps/webui.py` | turn ON reworded-question recall (downloads ~90 MB once; off by default) |
 | `AUTO_REMEMBER=0 python3 apps/personal_brain.py` | only save when you say `remember …` |
 | `NO_BROWSER=1 python3 apps/webui.py` | don't auto-open the browser |
 | `PORT=9000 python3 apps/webui.py` | serve the web UI on a different port |

@@ -127,18 +127,34 @@ class Brain:
 
     # ---------- retrieval ----------
     def _try_embedder(self):
+        """Semantic recall is OPT-IN — nothing is ever downloaded by default.
+        Default: keyword recall + exact pins (zero download, instant, offline).
+        Enable reworded-question matching with BRAIN_SEMANTIC=1:
+          - if the ~90 MB embedder is already cached, it's used (no download);
+          - if it isn't cached, it downloads once (needs internet), announced first.
+        """
+        emb = "sentence-transformers/all-MiniLM-L6-v2"
+        want = os.environ.get("BRAIN_SEMANTIC", "").lower() in ("1", "true", "yes", "on")
+        cached = _hf_cached(emb)
+        if not want:
+            # DEFAULT (opt-in off): keyword + exact pins. Never downloads, never
+            # even loads torch — instant startup, works fully offline.
+            hint = ("Model is already cached — set BRAIN_SEMANTIC=1 to use it (no download)."
+                    if cached else
+                    "Set BRAIN_SEMANTIC=1 for reworded-question matching — downloads a ~90 MB model once.")
+            print(f"(semantic recall OFF — exact + keyword recall, zero download. {hint})", flush=True)
+            self.mode = "keyword"; return
+        if not cached and not _online():
+            print("(BRAIN_SEMANTIC=1 but offline & model not cached -> keyword recall for now)", flush=True)
+            self.mode = "keyword"; return
         try:
             import torch, numpy as np
             from transformers import AutoTokenizer, AutoModel
-            emb = "sentence-transformers/all-MiniLM-L6-v2"
-            if not _hf_cached(emb):
-                if not _online():
-                    print("(offline & embedding model not cached -> semantic recall off, keyword recall on)", flush=True)
-                    self.mode = "keyword"; return
-                print("(first run: downloading a ~90 MB embedding model -- one time, needs internet...)", flush=True)
+            if not cached:
+                print("(BRAIN_SEMANTIC=1: downloading the ~90 MB embedding model once, needs internet...)", flush=True)
             self._torch, self._np = torch, np
-            self._t = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-            self._m = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2").eval()
+            self._t = AutoTokenizer.from_pretrained(emb)
+            self._m = AutoModel.from_pretrained(emb).eval()
             self.mode = "semantic"
             self._vecs = self._embed(self.facts) if self.facts else None
         except Exception:

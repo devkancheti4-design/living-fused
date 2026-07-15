@@ -18,7 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import personal_brain as pb
 
-print("starting the brain... (first run may download a ~90 MB embedding model; cached after)", flush=True)
+print("starting the brain... (no downloads by default; set BRAIN_SEMANTIC=1 for reworded-question recall)", flush=True)
 brain = pb.Brain()
 lock = threading.Lock()
 
