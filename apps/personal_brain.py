@@ -20,7 +20,12 @@ Usage:
   AUTO_REMEMBER=0 python3 personal_brain.py       # only remember on explicit 'remember ...'
 """
 import sys, os, json, re
-STORE = os.path.expanduser("~/.personal_brain.json")
+# Where your facts live. Override BRAIN_DB to keep the memory in a backed-up /
+# synced folder (iCloud, Dropbox) so it survives disk loss and follows you across
+# machines, e.g. BRAIN_DB="~/Library/Mobile Documents/com~apple~CloudDocs/brain.json".
+# It is a plain local file: it persists across reboots and any length of time —
+# it is only ever lost if the file is deleted or the disk fails.
+STORE = os.path.expanduser(os.environ.get("BRAIN_DB", "~/.personal_brain.json"))
 AUTO_REMEMBER = os.environ.get("AUTO_REMEMBER", "1") != "0"
 GREET = {"hi", "hello", "hey", "yo", "sup", "thanks", "thank you", "thx", "ok", "okay", "k",
          "cool", "nice", "great", "yes", "no", "yeah", "nope", "bye", "goodbye", "lol", "haha"}

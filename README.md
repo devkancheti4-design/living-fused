@@ -129,6 +129,46 @@ brain > Not if you're allergic to peanuts.              (recalled)
 Just talk to it — it works out whether you're telling it something or asking. Everything stays on
 your machine; each person runs their own. Full usage + honest scope in [`apps/README.md`](apps/README.md).
 
+## Do my facts survive? (reboots, 10 days off, GitHub) — read this
+
+**Yes, across time and reboots — the memory is a plain file on your disk.** It
+does not decay, expire, or forget on its own. Proof you can run: store a fact,
+turn the laptop off for as long as you like, reopen it, and `get` it back — it's
+byte-identical (the smoke test verifies exact recall across process death; time
+and reboots don't touch a file that isn't being written).
+
+**The one thing to understand: your CODE and your MEMORY are separate.**
+
+| | Lives where | Goes to GitHub? |
+|---|---|---|
+| The **code** (life.py, apps) | the repo | **Yes** — that's what you clone/commit |
+| Your **facts** (`life.json`, `~/.personal_brain.json`) | a local file on your machine | **No — gitignored on purpose** |
+
+Committing to GitHub does **not** save your facts, and that's deliberate — you
+do **not** want your name, passwords, and private notes pushed to a public repo.
+So: **GitHub is for sharing the tool; your memory stays private on your device.**
+
+**A fact is only ever lost if the file is deleted or the disk fails.** To make it
+bulletproof:
+- **Back it up / sync it:** point the memory at a synced folder so it's copied to
+  the cloud automatically and follows you across machines:
+  ```bash
+  export LIFE_DB="$HOME/Library/Mobile Documents/com~apple~CloudDocs/life.json"   # life.py (iCloud)
+  export BRAIN_DB="$HOME/Library/Mobile Documents/com~apple~CloudDocs/brain.json" # the chat app
+  ```
+  (or any Dropbox/Drive folder). Now it survives a lost laptop.
+- **Or keep a private memory repo** — a *separate, private* git repo that holds
+  only `life.json`. Never the public code repo.
+- It's one small file — `cp life.json life.backup.json` is a complete backup.
+
+> **Honest note about the name it forgot:** if a fact you set earlier is gone,
+> it's one of three things — (1) the memory file was deleted, (2) an older
+> version of the app didn't capture a short intro like "I'm Dev" (fixed now: the
+> exact pin layer + migration-on-load), or (3) it was stored on a different
+> machine / path. The mechanism itself never forgets a fact it saved — but it
+> can't protect a file something else erased. That's why the backup step above
+> matters.
+
 ## If the terminal seems to do nothing — read this first
 
 Nothing here is broken; three things LOOK like a hang and aren't:
