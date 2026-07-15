@@ -6,6 +6,7 @@ the Life keeps the facts: **exact** (verbatim, not paraphrased), **permanent**
 (survives the conversation, the context window, and the process), and **honest**
 (on a fact it doesn't have, it says `ABSTAIN` — it cannot guess).
 
+**Where is it actually useful?** → [USE_CASES.md](USE_CASES.md) — the silent-error checker (exp14: 3 confident swaps caught, O(1)) + the agent-persistence organ, with honest bills.
 **Is it just a dict? Better than RAG?** → [BENCHMARK.md](BENCHMARK.md) — measured: ties a dict on exact recall, LOSES to RAG on paraphrase (0/10 vs 6/10), wins on determinism + guaranteed abstention. No spin.
 **Works with any model?** → [ADAPTABILITY.md](ADAPTABILITY.md) — one memory, 6 models, 4 vendors, measured: bare 0/24 → fused 24/24.
 
