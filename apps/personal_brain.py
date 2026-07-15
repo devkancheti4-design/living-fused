@@ -68,6 +68,14 @@ class Brain:
                 self.pins = d.get("pins", {})   # back-compat: old files have no pins
             except Exception:
                 self.facts = []; self.pins = {}
+            # MIGRATION: promote any name/attribute already sitting in old semantic
+            # facts up into the exact pin layer, so a name told under the old code
+            # (or before this fix) is recalled exactly instead of fuzzily.
+            before = dict(self.pins)
+            for f in self.facts:
+                self._extract_pins(f)
+            if self.pins != before:
+                self._save()
 
     def _save(self):
         json.dump({"facts": self.facts, "pins": self.pins}, open(STORE, "w"))
@@ -80,6 +88,7 @@ class Brain:
         are too short/casual for the semantic _is_fact filter (the reported bug:
         'I'm Devieswar' was silently dropped)."""
         m = message.strip()
+        before = dict(self.pins)
         # name: "my name is X" | "I'm X" | "I am X" | "call me X" | "name's X" | "this is X"
         nm = re.search(r"\b(?:my name is|i am|i'm|call me|name's|name is|this is)\s+"
                        r"([A-Z][\w'-]*(?:\s+[A-Z][\w'-]*){0,2})", m, re.I)
@@ -96,7 +105,7 @@ class Brain:
             v = re.sub(r"[.!?\s]+$", "", v.strip())  # drop trailing '.', keep 192.168.1.9
             if a and a != "name" and v:
                 self.pins[a] = v
-        return bool(nm) or ("my " in m.lower() and " is " in m.lower())
+        return self.pins != before   # True only if something was actually captured
 
     def _pinned_context(self):
         return "\n".join(f"- {k}: {v}" for k, v in self.pins.items())
@@ -187,15 +196,19 @@ class Brain:
                          if target not in k.lower() and target not in v.lower()}
             if self.mode == "semantic": self._vecs = self._embed(self.facts) if self.facts else None
             self._save(); return f"Forgot {before - len(self.facts) - len(self.pins)} matching note(s)."
-        # EXACT pins first: capture identity/attributes on EVERY message (even short
-        # ones the semantic filter drops), and answer pin questions exactly.
-        saved_pin = self._extract_pins(message) if AUTO_REMEMBER else False
-        if saved_pin: self._save()
-        if self._is_question(message):
+        is_q = self._is_question(message)
+        # A QUESTION never stores — answer it exactly from pins if we can.
+        if is_q:
             exact = self._answer_from_pins(message)
             if exact:
                 self._push(message, exact); return exact
-        if AUTO_REMEMBER and self._is_fact(message):
+            saved_pin = False
+        else:
+            # A STATEMENT: capture identity/attributes as exact pins (even short
+            # forms like 'I'm Devieswar' that the semantic filter drops).
+            saved_pin = self._extract_pins(message) if AUTO_REMEMBER else False
+            if saved_pin: self._save()
+        if AUTO_REMEMBER and not is_q and self._is_fact(message):
             self.remember(message)
             reply = self._respond(message, self.recall(message), just_saved=True)
             self._push(message, reply); return reply
