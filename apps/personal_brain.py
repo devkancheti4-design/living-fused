@@ -25,6 +25,22 @@ AUTO_REMEMBER = os.environ.get("AUTO_REMEMBER", "1") != "0"
 GREET = {"hi", "hello", "hey", "yo", "sup", "thanks", "thank you", "thx", "ok", "okay", "k",
          "cool", "nice", "great", "yes", "no", "yeah", "nope", "bye", "goodbye", "lol", "haha"}
 
+def _hf_cached(repo):
+    """Is this model already in the local HF cache? (no network)"""
+    import glob
+    pat = os.path.expanduser(f"~/.cache/huggingface/hub/models--{repo.replace('/', '--')}/snapshots/*")
+    return bool(glob.glob(pat))
+
+def _online(host="huggingface.co", timeout=3):
+    """Quick reachability check so a missing network fails FAST, never hangs."""
+    import socket
+    try:
+        socket.create_connection((host, 443), timeout=timeout).close()
+        return True
+    except OSError:
+        return False
+
+
 class Brain:
     MAX_TURNS = 6  # conversation turns the model sees
     PERSONA = ("You are a warm, concise personal assistant with the user's private saved notes. "
@@ -52,6 +68,12 @@ class Brain:
         try:
             import torch, numpy as np
             from transformers import AutoTokenizer, AutoModel
+            emb = "sentence-transformers/all-MiniLM-L6-v2"
+            if not _hf_cached(emb):
+                if not _online():
+                    print("(offline & embedding model not cached -> semantic recall off, keyword recall on)", flush=True)
+                    self.mode = "keyword"; return
+                print("(first run: downloading a ~90 MB embedding model -- one time, needs internet...)", flush=True)
             self._torch, self._np = torch, np
             self._t = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
             self._m = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2").eval()
@@ -145,7 +167,14 @@ class Brain:
         # your LOCAL model phrases the reply. Apple MLX by default; plug in any backend here.
         try:
             from mlx_lm import load, generate
-            if not hasattr(self, "_mlx"): self._mlx = load("mlx-community/Qwen2.5-7B-Instruct-4bit")
+            if not hasattr(self, "_mlx"):
+                repo = "mlx-community/Qwen2.5-7B-Instruct-4bit"
+                if not _hf_cached(repo):
+                    if not _online():
+                        return None  # offline & model not cached: facts-only replies, no hang
+                    print(f"(first run: downloading the local phrasing model {repo} -- several GB, ONE time."
+                          " Ctrl+C to skip; facts-only replies still work.)", flush=True)
+                self._mlx = load(repo)
             model, tok = self._mlx
             text = tok.apply_chat_template(msgs, add_generation_prompt=True, tokenize=False)
             return generate(model, tok, prompt=text, max_tokens=140, verbose=False).strip()

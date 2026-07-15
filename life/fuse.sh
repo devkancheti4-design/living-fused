@@ -20,6 +20,8 @@
 # never touches the network, and only writes: life.py, CLAUDE.md, AGENTS.md,
 # life.json inside TARGET_DIR.
 set -e
+PY="$(command -v python3 || command -v python || true)"
+if [ -z "$PY" ]; then echo "ERROR: Python 3 not found. Install python.org/downloads then re-run."; exit 1; fi
 SRC="$(cd "$(dirname "$0")" && pwd)"
 TARGET="${1:-$PWD}"
 mkdir -p "$TARGET"
@@ -32,7 +34,7 @@ echo "==================================================================="
 # ---- 1. smoke test the organ (never fuse an organ that fails) -------------
 echo ""
 echo "[1/5] smoke test (16 deterministic checks)..."
-if python3 "$SRC/smoke_test.py" > /tmp/life_smoke_$$.log 2>&1; then
+if "$PY" "$SRC/smoke_test.py" > /tmp/life_smoke_$$.log 2>&1; then
   grep -E "^RESULT" /tmp/life_smoke_$$.log | sed 's/^/      /'
 else
   echo "      SMOKE TEST FAILED — refusing to fuse. Full log:"
@@ -107,10 +109,10 @@ echo "                         schemas in life/README.md §5d route to this same
 echo ""
 echo "[5/5] live round-trip in $TARGET:"
 cd "$TARGET"
-python3 life.py put "fuse.check" "alive-and-exact" >/dev/null
-V=$(python3 life.py get "fuse.check")
-M=$(python3 life.py get "fuse.never.stored" || true)
-python3 life.py forget "fuse.check" >/dev/null
+"$PY" life.py put "fuse.check" "alive-and-exact" >/dev/null
+V=$("$PY" life.py get "fuse.check")
+M=$("$PY" life.py get "fuse.never.stored" || true)
+"$PY" life.py forget "fuse.check" >/dev/null
 echo "      put fuse.check -> get: '$V'   (verbatim: $( [ "$V" = "alive-and-exact" ] && echo OK || echo FAIL ))"
 echo "      get unstored key     -> '$M'   (structural abstention: $( [ "$M" = "ABSTAIN" ] && echo OK || echo FAIL ))"
 [ "$V" = "alive-and-exact" ] && [ "$M" = "ABSTAIN" ] || { echo "      ROUND-TRIP FAILED"; exit 1; }

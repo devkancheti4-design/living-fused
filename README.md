@@ -129,6 +129,28 @@ brain > Not if you're allergic to peanuts.              (recalled)
 Just talk to it — it works out whether you're telling it something or asking. Everything stays on
 your machine; each person runs their own. Full usage + honest scope in [`apps/README.md`](apps/README.md).
 
+## If the terminal seems to do nothing — read this first
+
+Nothing here is broken; three things LOOK like a hang and aren't:
+
+1. **First run of `apps/personal_brain.py` / `apps/webui.py` downloads model
+   weights** — a ~90 MB embedding model at startup, and (only if you installed
+   `mlx-lm`) a several-GB phrasing model on your FIRST message. Both now print
+   exactly what they're downloading before they start. Needs internet ONCE;
+   everything is cached and offline after that. **Offline with nothing cached?**
+   They now skip those tiers in ~3 seconds and fall back to keyword/facts-only
+   recall instead of waiting on the network.
+2. **`apps/webui.py` is a server** — it prints a URL and then sits quietly BY
+   DESIGN. Open http://127.0.0.1:8765 in your browser; the app is there.
+3. **`apps/personal_brain.py` is a chat** — when you see `you >` it is waiting
+   for YOU to type.
+
+Zero-wait, zero-network, zero-install paths (stdlib only, instant output,
+work on a fully offline laptop): `python3 apps/researcher_bench.py`, everything
+in [`life/`](life/) (`bash life/fuse.sh`, `python3 life/smoke_test.py`), and
+`bash life/proof/run_proof.sh`. No `python3` on your machine? `fuse.sh` now
+falls back to `python` automatically; on Windows use `python`.
+
 ## The three apps in one line each
 
 - **`apps/researcher_bench.py`** — reproduce the context-memory decoupling on your machine (KV-cache
