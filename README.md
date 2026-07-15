@@ -6,6 +6,34 @@ of letting the model guess. So the model won't drift or invent things about stuf
 told it. Runs on your laptop, stays private, and the memory stays tiny no matter how long the input
 gets (there's no growing KV-cache).
 
+
+## "Isn't this just a dictionary?" — no, and here's the proof you can run
+
+The most common reaction is "it's a dict with extra steps." It isn't. The memory core does six things a
+dictionary provably cannot. Every number below is printed by `proof_not_a_dict.py` — one command, and the
+only thing it needs beyond Python is torch (for the neural-net comparison in #4):
+
+1. **It generalizes to inputs it has never seen.** Teach it 600 additions, then test 400 it never saw: a
+   real Python dict scores **0/400** (it only holds the pairs you stored); this scores **400/400**, because
+   it learned the *rule*, not the pairs.
+2. **It extrapolates past its training range.** Train it only on 3-digit numbers, then hand it 10-digit
+   ones: the dict gets **0/300**, this gets **300/300**. It never saw a number that large and still nails it.
+3. **It stores the law, not the data.** **200** learned cases answer **100,000** different sums. A lookup
+   table needs one slot per sum; this needs one slot per rule. It compresses.
+4. **It does not catastrophically forget.** Teach a small neural net task A (100%), then task B, and A
+   collapses to **20%** — the classic failure of gradient learning. Teach this task A then B, and A stays
+   **100%**. Nothing bleeds between what it learns.
+5. **It knows when it doesn't know.** Withhold one rule during training, then feed it problems that need it:
+   it **abstains 157/157** instead of inventing a wrong answer, while still answering **157/157** of the
+   problems it *can* derive. It speaks only where it has a basis. It never bluffs.
+6. **It's byte-for-byte deterministic.** Two copies fed the identical experience produce the identical
+   state, down to the **SHA-256**. Same life in, same being out — every time.
+
+A dict does none of these. This is not storage; it's a small deterministic thing that learns rules,
+generalizes, abstains when it should, and reproduces exactly. To be equally clear about the boundary: what
+it does **not** do is the open-ended, see-the-trick reasoning a frontier model does — that stays the model's
+job. It's a living rule-learner, not a mind. Run `python3 proof_not_a_dict.py` and check every number yourself.
+
 Why I built it: LLMs hallucinate and forget because everything they "know" is either frozen into the
 weights or crammed into a context window that costs memory and gets ignored anyway. I wanted a memory
 that sits outside the model, is exact, and is reproducible. Same input, same output, every time. If
@@ -98,7 +126,7 @@ cd living-fused
 
 python3 apps/researcher_bench.py     # KV-cache / cost benchmark — needs NOTHING installed
 python3 apps/personal_brain.py       # your private conversational memory (terminal)
-python3 apps/webui.py                # chat app -> AUTO-OPENS your browser at http://127.0.0.1:8765
+python3 apps/webui.py                # chat app, auto-opens your browser at http://127.0.0.1:8765
 ```
 
 Optional, for the full experience:
@@ -131,49 +159,61 @@ your machine; each person runs their own. Full usage + honest scope in [`apps/RE
 
 ## Personal assistant — every command
 
-**Start it**
-```bash
-python3 apps/personal_brain.py            # interactive chat in the terminal (type at `you >`)
-python3 apps/personal_brain.py "message"  # one-shot: send one message, print the reply, exit
-python3 apps/webui.py                      # browser chat — auto-opens http://127.0.0.1:8765
-```
+> **Two rules so nothing breaks:** (1) `cd` into the repo first — the commands
+> are relative to it. (2) **Copy ONE line at a time.** Don't paste a whole block
+> with the `#`/`→` descriptions; your shell will try to run the description and
+> error out. Every code block below is written so each line is safe on its own.
 
-**Talk to it (inside the chat — plain English, no syntax needed)**
-```
-I'm Devieswar                     # tells it your name (pinned exactly, never forgotten)
-my server ip is 192.168.1.9       # any "my X is Y" fact is pinned exactly
-I have a dentist appt at 9am      # freeform notes are remembered too
-what is my name?                  # ask anything — exact facts answered verbatim
-remember <anything>               # force-save a note explicitly
-forget <text>                     # delete notes/pins matching <text>
-forget all                        # wipe this brain
-quit   (or Ctrl-C)                # leave (your facts are already saved)
-```
+**Start it — `cd ~/living-fused` first, then run ONE of these:**
 
-**Make your memory durable / portable (survives a lost laptop, follows you across machines)**
-```bash
-# point the memory at a synced, backed-up folder (iCloud shown; Dropbox/Drive work too)
-export BRAIN_DB="$HOME/Library/Mobile Documents/com~apple~CloudDocs/brain.json"   # the chat app
-export LIFE_DB="$HOME/Library/Mobile Documents/com~apple~CloudDocs/life.json"     # the life.py store
-python3 apps/personal_brain.py    # now reads/writes the synced file
-cp ~/.personal_brain.json ~/brain.backup.json                                    # or just back up the one file
-```
+| Command | What it does |
+|---|---|
+| `python3 apps/personal_brain.py` | interactive chat in the terminal (type at the `you >` prompt) |
+| `python3 apps/personal_brain.py "your message"` | one-shot: send one message, print the reply, exit |
+| `python3 apps/webui.py` | browser chat — auto-opens `http://127.0.0.1:8765` |
 
-**Options**
-```bash
-AUTO_REMEMBER=0 python3 apps/personal_brain.py   # only save on explicit "remember ..."
-NO_BROWSER=1   python3 apps/webui.py             # don't auto-open the browser
-HOST=0.0.0.0 PORT=9000 python3 apps/webui.py     # bind the web UI elsewhere
-```
+**Talk to it** — just type plain English in the chat (these are things you *say*,
+not shell commands):
 
-**The exact memory directly (no chat, for scripts/agents)**
+| You type | Result |
+|---|---|
+| `I'm Devieswar` | tells it your name — pinned exactly, never forgotten |
+| `my server ip is 192.168.1.9` | any "my … is …" fact is pinned exactly |
+| `I have a dentist appt at 9am` | freeform notes are remembered too |
+| `what is my name?` | ask anything — exact facts come back verbatim |
+| `remember <anything>` | force-save a note explicitly |
+| `forget <text>` | delete notes/pins matching that text |
+| `forget all` | wipe this brain |
+| `quit` (or Ctrl-C) | leave — your facts are already saved |
+
+**Make your memory durable / portable** (survives a lost laptop, follows you
+across machines). Point the memory at a synced, backed-up folder — run these two
+`export` lines, then start the app in the same terminal:
+
 ```bash
-python3 life/life.py put "wifi.password" "Rose99"   # store / revise (newest wins)
-python3 life/life.py get "wifi.password"            # exact recall, or ABSTAIN (exit 3)
-python3 life/life.py history "wifi.password"        # every past value
-python3 life/life.py doctor                         # is memory wired & working here?
-python3 life/life.py stats                          # fact count + identity sha
+export BRAIN_DB="$HOME/Library/Mobile Documents/com~apple~CloudDocs/brain.json"
+export LIFE_DB="$HOME/Library/Mobile Documents/com~apple~CloudDocs/life.json"
 ```
+(iCloud shown; any Dropbox/Drive folder works.) Or just copy the one file as a
+backup: `cp ~/.personal_brain.json ~/brain.backup.json`.
+
+**Options** — each line is a complete command; run whichever you want:
+
+| Command | Effect |
+|---|---|
+| `AUTO_REMEMBER=0 python3 apps/personal_brain.py` | only save when you say `remember …` |
+| `NO_BROWSER=1 python3 apps/webui.py` | don't auto-open the browser |
+| `PORT=9000 python3 apps/webui.py` | serve the web UI on a different port |
+
+**The exact memory directly** (no chat — for scripts and agents):
+
+| Command | What it does |
+|---|---|
+| `python3 life/life.py put "wifi.password" "Rose99"` | store / revise (newest wins) |
+| `python3 life/life.py get "wifi.password"` | exact recall, or `ABSTAIN` (exit 3) |
+| `python3 life/life.py history "wifi.password"` | every past value |
+| `python3 life/life.py doctor` | is memory wired & working here? |
+| `python3 life/life.py stats` | fact count + identity sha |
 
 ### "Why did it forget a fact I told it yesterday?"
 
